@@ -1,0 +1,141 @@
+-函数-
+void reset()
+[说明]重置矩阵
+matrix blank_matrix()
+[返回]返回空矩阵
+bool is_matrix()
+[返回]矩阵验证
+MATRIX ptr()
+[返回]矩阵指针
+matrix()
+[说明]空构造函数
+(uint64_t ln_cnt, uint64_t col_cnt, bool rand = false, double rand_boundry_first = 0, double rand_boundry_second = 0, double rand_acc = 1e-5)
+[参数]行, 列, 随机数初始化验证, 随机数区间第一个位置, 随机数区间第二个位置, 随机数精度
+[说明]使用行列构造矩阵, 选择是否使用随机数进行初始化
+(MATRIX &&ptr_val, uint64_t ln_cnt, uint64_t col_cnt)
+[参数]矩阵指针, 行, 列
+[说明]使用矩阵指针移动构造矩阵
+(MATRIX &ptr_val, uint64_t ln_cnt, uint64_t col_cnt)
+[参数]矩阵指针, 行, 列
+[说明]使用矩阵指针复制构造矩阵
+(double atom)
+[参数]原子值
+(matrix &val)
+[参数]复制源
+[说明]复制构造函数
+(matrix &&val)
+[参数]转移源
+[说明]移动构造函数
+(std::initializer_list<std::initializer_list<double>> _vect)
+[参数]初始化矩阵
+[说明]直接构造矩阵
+[示例]
+matrix vector = {{1, 2},
+		 {3, 4}};
+/* 直接构造一个矩阵, 值为
+ * 1 2
+ * 3 4
+ */
+bool value_copy(matrix &val)
+[参数]赋值源
+[说明]自身赋值一个矩阵
+[返回]赋值验证
+bool value_move(matrix &&val)
+[参数]移植源
+[说明]自身替换为一个矩阵的移植
+[返回]移植验证
+void value_fill(double val)
+[参数]目标值
+[参数]使用目标值填充一个矩阵
+uint64_t get_ln_cnt()
+[返回]行
+uint64_t get_col_cnt()
+[返回]列
+uint64_t get_elem_cnt()
+[返回]元素个数
+double determinant()
+[返回]行列值
+matrix inverser()
+[返回]逆矩阵
+matrix transposition()
+[返回]转置
+mtx_extm extremum(uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilation = 0, uint64_t col_dilation = 0, bool max_flag = true)
+[参数]行始值, 行尾值, 列始值, 列尾值, 行扩张值, 列扩张值, 最值验证
+[说明]扩张式寻找子矩阵最值
+[返回]最值, 最值坐标链表
+matrix child(uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilation = 0, uint64_t col_dilation = 0)
+[参数]行始值, 行尾值, 列始值, 列尾值, 行扩张值, 列扩张值
+[返回]扩张式子矩阵
+matrix rotate_rect(bool clockwise = true)
+[参数]顺时针验证
+[返回]顺时针或逆时针直角旋转矩阵
+matrix mirror_flip(bool is_vertical = true)
+[参数]垂直验证
+[返回]垂直或水平镜面反转矩阵
+bool shape_valid
+(uint64_t ln_cnt, uint64_t col_cnt)
+[参数]行, 列
+[返回]尺寸对比验证
+(matrix &mtx_src)
+[参数]对比源
+[返回]形状对比验证
+matrix reshape
+(uint64_t ln_cnt, uint64_t col_cnt)
+[参数]行, 列
+[返回]重置行列形状矩阵, 行列乘积必须不变
+(matrix &as_val)
+[参数]模板源
+[返回]按照模板重置行列形状矩阵, 行列乘积必须相同
+double elem_sum()
+[返回]矩阵元素和
+(uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilation = 0, uint64_t col_dilation = 0)
+[参数]行始值, 行尾值, 列始值, 列尾值, 行扩张值, 列扩张值
+[返回]扩张式子矩阵子矩阵和
+matrix abs()
+[返回]绝对值矩阵
+matrix elem_cal_opt
+(matrix &r_val, uint64_t opt_idx)
+[参数]运算右矩阵, 运算参数
+[说明]矩阵元素乘除运算
+MATRIX_ELEM_MULT 哈达玛积(元素相乘)
+MATRIX_ELEM_DIV 元素作商
+matrix elem_cal_opt(double para, uint64_t opt_idx)
+[参数]运算值, 运算参数
+[说明]矩阵元素乘方或商运算
+MATRIX_ELEM_POW 元素乘方
+MATRIX_ELEM_DIV 元素作商
+matrix pad(uint64_t ln_t = 0, uint64_t col_r = 0, uint64_t ln_b = 0, uint64_t col_l = 0, uint64_t ln_dist = 0, uint64_t col_dist = 0)
+[参数]行顶, 列右, 行底, 列左, 行间, 列间
+[返回]扩展矩阵
+matrix crop(uint64_t ln_t = 0, uint64_t col_r = 0, uint64_t ln_b = 0, uint64_t col_l = 0, uint64_t ln_dist = 0, uint64_t col_dist = 0)
+[参数]行顶, 列右, 行底, 列左, 行间, 列间
+[返回]裁剪矩阵
+matrix round_fit()
+[返回]四舍五入矩阵
+matrix LU()
+[返回]LU分解
+matrix linear_eq(matrix &val_b, bool eq_idx = MATRIX_EQ_LU)
+[参数]右侧向量, 方程组解法
+[说明]解线性方程组
+MATRIX_EQ_LU LU分解
+MATRIX_EQ_JACOBI jacobi迭代
+matrix swap_dir_elem(uint64_t l_idx, uint64_t r_idx, bool is_ln = true)
+[参数]第一个交换值, 第二个交换值, 行变换验证
+[说明]初等行变换, 两个交换行列值交换
+[返回]变换矩阵
+matrix adjugate(uint64_t ln, uint64_t col)
+[参数]目标行, 目标列
+[返回]矩阵目标位置伴随矩阵
+uint64_t rank()
+[返回]秩
+double &pos_idx(uint64_t idx)
+[参数]指针位置
+[返回]矩阵指针位置元素引用
+-运算符-
+[][]	取矩阵元素
++ +=	矩阵加法
+- -=	矩阵减法
+* *=	矩阵乘法
+=	赋值
+==	判定矩阵是否相同
+!=	判定矩阵是否不同

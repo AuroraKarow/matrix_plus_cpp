@@ -1,0 +1,28 @@
+#pragma once
+#include <iostream>
+#include <chrono>
+#include <functional>
+#include <cmath>
+
+#define BASEALGO_BEGIN  namespace bagrt {
+#define BASEALGO_END    }
+
+#define IDX_ZERO    0
+#define IDX_SGL     1
+
+struct
+{
+    long begin;
+    long end;
+    double dur;
+} CLK_NOTE;
+
+#define CLOCK_BEGIN     {CLK_NOTE.begin = clock();}
+#define CLOCK_END       {CLK_NOTE.end = clock(); \
+                        CLK_NOTE.dur = (double)((CLK_NOTE.end - CLK_NOTE.begin) * 1000 / CLOCKS_PER_SEC);}
+#define CLOCK_DURATION  (std::to_string(CLK_NOTE.dur) + std::string("ms"))
+
+#include "bagrt.hpp"
+
+template<typename _Ty> using set    =   bagrt::net_queue<_Ty>;
+template<typename _Ty> using vect_t =   bagrt::net_queue<bagrt::net_queue<_Ty>>;

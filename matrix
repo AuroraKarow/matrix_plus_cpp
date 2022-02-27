@@ -1,0 +1,36 @@
+#pragma once
+#include <random>
+#include "bagrt"
+
+// namespace
+
+#define MATRIX_BEGIN        namespace mtx {
+#define MATRIX_END          }
+
+#define MATRIX              std::unique_ptr<double[]>
+#define MATRIX_NULL         nullptr
+
+#define MATRIX_EQ_LU        true
+#define MATRIX_EQ_JACOBI    false
+
+#define MATRIX_POS          mtx::mtx_pos
+#define MATRIX_INFO         mtx::mtx_info
+#define MATRIX_EXTREME      mtx::mtx_extm
+
+#define MATRIX_ELEM_MULT    0
+#define MATRIX_ELEM_DIV     1
+#define MATRIX_ELEM_POW     2
+
+#include "matrix.hpp"
+
+#define vect                mtx::matrix
+#define feature             bagrt::net_queue<vect>
+#define tensor              bagrt::net_queue<feature>
+
+#define blank_vect          vect::blank_matrix()
+#define blank_feature       feature::blank_queue()
+#define blank_tensor        tensor::blank_queue()
+
+#define blank_vect_seq      blank_feature
+#define blank_ft_seq        blank_tensor
+#define blank_ten_seq       bagrt::net_queue<tensor>::blank_queue()
