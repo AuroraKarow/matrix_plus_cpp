@@ -152,20 +152,32 @@ public:
         net_queue sub_out;
         if(idx_first<len && idx_second<len)
         {
-            if(idx_second < idx_first) std::swap(idx_first, idx_second);
+            idx_second<idx_first ? std::swap(idx_first, idx_second) : NULL;
             auto mem_size = num_cnt(idx_first, idx_second);
             if(mem_size == len) sub_out = *this;
             else
             {
                 sub_out.init(mem_size);
-                for(auto i=idx_first; i<=idx_second; ++i) sub_out._ptr[i] = _ptr[i];
+                for(auto i=0; i<mem_size; ++i) sub_out._ptr[i] = _ptr[i+idx_first];
             }
         }
         return sub_out;
     }
+    net_queue sub_queue(net_queue<uint64_t> &idx_seq)
+    {
+        if(idx_seq.size())
+        {
+            net_queue sub_out(idx_seq.size());
+            if(idx_seq.size() == len) sub_out = *this;
+            else for(auto i=0; i<sub_out.size(); ++i) sub_out._ptr[i] = _ptr[idx_seq[i]];
+            return sub_out;
+        }
+        else return blank_queue();
+    }
     void sort(bool asc = true, std::function<bool(_Ty&, _Ty&)> _func = [](_Ty &_first, _Ty &_second){return _first > _second;}) { quick_sort(_ptr, 0, len - 1, asc, _func); }
     net_queue unit(net_queue &val)
     {
+
         net_queue u_set(val.len + len);
         for(auto i=0; i<u_set.len; ++i)
         {
@@ -215,6 +227,16 @@ public:
         auto rtn_val = _ptr[IDX_ZERO];
         for(auto i=1; i<len; ++i) rtn_val = std::move(add_func(rtn_val, _ptr[i]));
         return rtn_val;
+    }
+    bool shuffle()
+    {
+        if(len)
+        {
+            std::srand((unsigned)std::time(NULL));
+            for(auto i=len; i>0; --i) std::swap(_ptr[i-1], _ptr[std::rand()%i]);
+            return true;
+        }
+        else return false;
     }
     _Ty &operator[](uint64_t idx)
     {
@@ -624,6 +646,26 @@ double random_number(double boundry_first, double boundry_second, bool to_sleep 
         return (boundry_first<boundry_second) ? (seed_pt*(boundry_second-boundry_first)+boundry_first) : ((seed_pt*(boundry_first-boundry_second))+boundry_second);
     }
     else return 0;
+}
+
+net_queue<uint64_t> random_index(uint64_t seq_size, uint64_t amt)
+{
+    if(seq_size && amt)
+    {
+        net_queue<uint64_t> idx_seq(seq_size);
+        for(auto i=0; i<seq_size; ++i) idx_seq[i] = i;
+        idx_seq.shuffle();
+        net_queue<uint64_t> idx_seq_shuffle(seq_size);
+        for(auto i=0; i<seq_size; ++i) idx_seq_shuffle[i] = i;
+        idx_seq_shuffle.shuffle();
+        net_queue<uint64_t> ans(amt);
+        for(auto i=0; i<ans.size(); ++i) ans[i] = idx_seq[idx_seq_shuffle[i]];
+        ans.sort();
+        idx_seq.reset();
+        idx_seq_shuffle.reset();
+        return ans;
+    }
+    else return net_queue<uint64_t>::blank_queue();
 }
 
 uint32_t swap_endian(uint32_t val)
