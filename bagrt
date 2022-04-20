@@ -9,20 +9,22 @@
 
 #define IDX_ZERO    0
 #define IDX_SGL     1
-
-struct
-{
-    long begin;
-    long end;
-    double dur;
-} CLK_NOTE;
-
-#define CLOCK_BEGIN     {CLK_NOTE.begin = clock();}
-#define CLOCK_END       {CLK_NOTE.end = clock(); \
-                        CLK_NOTE.dur = (double)((CLK_NOTE.end - CLK_NOTE.begin) * 1000 / CLOCKS_PER_SEC);}
-#define CLOCK_DURATION  (std::to_string(CLK_NOTE.dur) + std::string("ms"))
+#define IDX_MAX     128
 
 #include "bagrt.hpp"
 
-template<typename _Ty> using set    =   bagrt::net_queue<_Ty>;
-template<typename _Ty> using vect_t =   bagrt::net_queue<bagrt::net_queue<_Ty>>;
+template<typename _Ty> using set        =   bagrt::net_queue<_Ty>;
+template<typename _Ty> using seq        =   bagrt::net_sequence<_Ty>;
+template<typename _Ty> using vect_t     =   set<set<_Ty>>;
+template<typename _Ty> using mem_ptr    =   typename bagrt::memory_sequence<_Ty>::_pointer;
+
+bagrt::clock_timer<uint64_t>    clock_note;
+
+#define CLOCK_BEGIN(LOG_ID)     clock_note.clock_begin(LOG_ID);
+#define CLOCK_END(LOG_ID)       clock_note.clock_end(LOG_ID);
+#define CLOCK_DURATION(LOG_ID)  clock_note.duration(LOG_ID)
+
+#define PRINT_THREAD(TD_IDX)    std::cout << "Thread[" << TD_IDX << ']' << std::endl;
+#define FRACTOR_RATE(NUM, DOM)  bagrt::num_rate(NUM, DOM)
+
+#define ENTER                   std::cout << std::endl;
