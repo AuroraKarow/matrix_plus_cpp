@@ -8,6 +8,7 @@
             "label": "cl.exe build active file",
             "command": "cl.exe",
             "args": [
+                "/std:c++17",
                 "/Zi",
                 "/EHsc",
                 "/Fe:",
