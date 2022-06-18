@@ -1,30 +1,57 @@
 #pragma once
-#include <iostream>
+
 #include <chrono>
 #include <functional>
 #include <cmath>
+#include <string>
+#include <random>
+#include <complex>
+#include <assert.h>
 
-#define BASEALGO_BEGIN  namespace bagrt {
-#define BASEALGO_END    }
+#define BAGRT_BEGIN                     namespace bagrt {
+#define BAGRT_END                       }
 
-#define IDX_ZERO    0
-#define IDX_SGL     1
-#define IDX_MAX     128
+BAGRT_BEGIN
 
-#include "bagrt.hpp"
+std::default_random_engine              rand_e;
+const long double                       pi = std::acos(-1);
 
-template<typename _Ty> using set        =   bagrt::net_queue<_Ty>;
-template<typename _Ty> using seq        =   bagrt::net_sequence<_Ty>;
-template<typename _Ty> using vect_t     =   set<set<_Ty>>;
-template<typename _Ty> using mem_ptr    =   typename bagrt::memory_sequence<_Ty>::_pointer;
+BAGRT_END
 
-bagrt::clock_timer<uint64_t>    clock_note;
+#define MEM_PTR(TYPE, SRC)              TYPE *SRC = nullptr
+#define MEM_ALLOC(TYPE, SRC, LEN)       SRC = new TYPE[LEN]
+#define MEM_INIT(TYPE, SRC, LEN)        MEM_PTR(TYPE, SRC); MEM_ALLOC(TYPE, SRC, LEN)
+#define MEM_RECYCLE(SRC)                if(SRC) delete [] SRC; SRC = nullptr
 
-#define CLOCK_BEGIN(LOG_ID)     clock_note.clock_begin(LOG_ID);
-#define CLOCK_END(LOG_ID)       clock_note.clock_end(LOG_ID);
-#define CLOCK_DURATION(LOG_ID)  clock_note.duration(LOG_ID)
+#define _BAGRT                          bagrt::
 
-#define PRINT_THREAD(TD_IDX)    std::cout << "Thread[" << TD_IDX << ']' << std::endl;
-#define FRACTOR_RATE(NUM, DOM)  bagrt::num_rate(NUM, DOM)
+#define __DEBUG_BEGIN(EXPR)             if(EXPR) {
+#define __DEBUG_END                     }
 
-#define ENTER                   std::cout << std::endl;
+#define IDX_ZERO                        0x0000000000000000
+#define IDX_SGL                         0x0000000000000001
+#define IDX_MAX                         0x0000000000000080
+
+#define EULER_MOD                       0x000000003b800001
+#define EULER_MOD_G                     0x0000000000000003
+
+#define DECIMAL_DIG_MAX                 0x0000000000000013
+#define DECIMAL_SEG_MAX                 0x8ac7230489e80000
+
+#define THREAD_IDX(TD_IDX)              std::cout << '[' << TD_IDX << ']' << std::endl;
+#define FRACTOR_RATE(NUM, DOM)          _BAGRT num_rate(NUM, DOM)
+#define CLEAR_LINE(LEN)                 std::printf("\r%s", ('%'+std::to_string(LEN)+'s').c_str());
+
+#define PRINT_ENTER                     std::cout << std::endl;
+#define PRINT_F(X)                      std::cout << X << std::endl
+
+#define HASH_INTEGER                    _BAGRT hash_integer
+#define HASH_STRING                     _BAGRT hash_string
+#define HASH_FLOAT                      _BAGRT hash_float
+
+#define CLOCK_DECLARE(TYPE, CLK, HASH)  _BAGRT clock_timer<TYPE> CLK(HASH);
+#define CLOCK_BEGIN(CLK, LOG_ID)        CLK.clock_begin(LOG_ID);
+#define CLOCK_END(CLK, LOG_ID)          CLK.clock_end(LOG_ID);
+#define CLOCK_DURATION(CLK, LOG_ID)     CLK.duration(LOG_ID)
+
+#include "bagrt.h"

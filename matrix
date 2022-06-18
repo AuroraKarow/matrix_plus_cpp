@@ -1,36 +1,39 @@
 #pragma once
-#include <random>
 #include "bagrt"
 
 // namespace
 
-#define MATRIX_BEGIN        namespace mtx {
-#define MATRIX_END          }
+#define MTX_BEGIN                   namespace mtx {
+#define MTX_END                     }
 
-#define MATRIX              std::unique_ptr<double[]>
-#define MATRIX_NULL         nullptr
+#define _MTX                        mtx::
 
-#define MATRIX_EQ_LU        true
-#define MATRIX_EQ_JACOBI    false
+#define MTX_PTR(TYPE, SRC)          MEM_PTR(TYPE, SRC)
+#define MTX_ALLOC(TYPE, SRC, LEN)   MEM_ALLOC(TYPE, SRC, LEN)
+#define MTX_INIT(TYPE, SRC, LEN)    MEM_INIT(TYPE, SRC, LEN)
+#define MTX_RESET(SRC)              MEM_RECYCLE(SRC)
 
-#define MATRIX_POS          mtx::mtx_pos
-#define MATRIX_INFO         mtx::mtx_info
-#define MATRIX_EXTREME      mtx::mtx_extm
+#define MTX_ELEM_MULT               0
+#define MTX_ELEM_DIV                1
+#define MTX_ELEM_POW                2
 
-#define MATRIX_ELEM_MULT    0
-#define MATRIX_ELEM_DIV     1
-#define MATRIX_ELEM_POW     2
+#define __mtx_elem                  arg
+#define __mtx                       __mtx_elem*
+#define __mtx_elem_v                = std::enable_if_t<std::is_same<__mtx_elem, bagrt::decimal>::value ||\
+                                                        std::is_floating_point<__mtx_elem>::value ||\
+                                                        std::is_integral<__mtx_elem>::value>
+#define __mtx_elem_v_               _Ty
+#define __mtx_callback              template<typename __mtx_elem>
+#define __mtx_callback_             template<typename __mtx_elem, typename __mtx_elem_v_>
+#define __mtx_t                     matrix<__mtx_elem, __mtx_elem_v_>
+#define __mtx_callback_t            typename __mtx_t::
 
-#include "matrix.hpp"
+#include "matrix_base.h"
+#include "matrix.h"
 
-#define vect                mtx::matrix
-#define feature             bagrt::net_queue<vect>
-#define tensor              bagrt::net_queue<feature>
+MTX_BEGIN
 
-#define blank_vect          vect::blank_matrix()
-#define blank_feature       feature::blank_queue()
-#define blank_tensor        tensor::blank_queue()
+typedef matrix<long double>         vect;
+typedef matrix<bagrt::decimal>      vect_dec;
 
-#define blank_vect_seq      blank_feature
-#define blank_ft_seq        blank_tensor
-#define blank_ten_seq       bagrt::net_queue<tensor>::blank_queue()
+MTX_END
