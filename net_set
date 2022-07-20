@@ -1,0 +1,9 @@
+#pragma once
+
+#ifndef __NET_SET__
+#define __NET_SET__
+
+#include "net_base"
+#include "net_set.hpp"
+
+#endif

@@ -1,595 +1,551 @@
-MTX_BEGIN
+MATRIX_BEGIN
 
-bool mtx_elem_pos(uint64_t &ln, uint64_t &col, uint64_t idx, uint64_t curr_col_cnt, uint64_t ln_from, uint64_t col_from, uint64_t ln_dilate, uint64_t col_dilate)
-{
-    if(curr_col_cnt)
-    {
-        ln = 0; col = 0;
-        if(ln_from || col_from  || ln_dilate || col_dilate)
-        {
-            ln = (idx / curr_col_cnt) * (ln_dilate + 1) + ln_from;
-            col = (idx % curr_col_cnt) * (col_dilate + 1) + col_from;
-        }
-        else
-        {
-            ln = idx / curr_col_cnt;
-            col = idx % curr_col_cnt;
-        }
-        return true;
+struct pos { uint64_t ln = 0, col = 0; };
+
+pos elem_pos(uint64_t idx, uint64_t curr_col_cnt, uint64_t ln_from, uint64_t col_from, uint64_t ln_dilate, uint64_t col_dilate) {
+    pos ans{};
+    if (curr_col_cnt == 0) return ans;
+    if (ln_from || col_from  || ln_dilate || col_dilate) {
+        ans.ln  = (idx / curr_col_cnt) * (ln_dilate + 1) + ln_from;
+        ans.col = (idx % curr_col_cnt) * (col_dilate + 1) + col_from;
+    } else {
+        ans.ln  = idx / curr_col_cnt;
+        ans.col = idx % curr_col_cnt;
     }
-    else return false;
+    return ans;
 }
-bool mtx_elem_pos(uint64_t &ln, uint64_t &col, uint64_t idx, uint64_t col_cnt) { return mtx_elem_pos(ln, col, idx, col_cnt, 0, 0, 0, 0); }
-uint64_t mtx_elem_pos(uint64_t ln, uint64_t col, uint64_t orgn_col_cnt, uint64_t ln_from, uint64_t col_from, uint64_t ln_dilate, uint64_t col_dilate)
-{
-    auto curr_ln = 0, curr_col = 0;
-    if(ln_from || col_from || ln_dilate || col_dilate)
-    {
-        curr_ln = ln_from + ln * (1 + ln_dilate),
+pos elem_pos(uint64_t idx, uint64_t col_cnt) { return elem_pos(idx, col_cnt, 0, 0, 0, 0); }
+uint64_t elem_pos(uint64_t ln, uint64_t col, uint64_t orgn_col_cnt, uint64_t ln_from, uint64_t col_from, uint64_t ln_dilate, uint64_t col_dilate) {
+    auto curr_ln  = 0,
+         curr_col = 0;
+    if (ln_from || col_from || ln_dilate || col_dilate) {
+        curr_ln  = ln_from + ln * (1 + ln_dilate),
         curr_col = col_from + col * (1 + col_dilate);
-    }
-    else
-    {
-        curr_ln = ln;
+    } else {
+        curr_ln  = ln;
         curr_col = col;
     }
     return curr_ln * orgn_col_cnt + curr_col;
 }
-uint64_t mtx_elem_pos(uint64_t ln, uint64_t col, uint64_t col_cnt) { return mtx_elem_pos(ln, col, col_cnt, 0, 0, 0, 0); }
+uint64_t elem_pos(uint64_t ln, uint64_t col, uint64_t col_cnt) { return elem_pos(ln, col, col_cnt, 0, 0, 0, 0); }
 
-__mtx_callback bool mtx_copy(__mtx &ans, __mtx &src, uint64_t elem_cnt) { return _BAGRT ptr_copy(ans, src, elem_cnt); }
-__mtx_callback bool mtx_copy(__mtx &ans, __mtx &src, uint64_t ln_cnt, uint64_t col_cnt) { return mtx_copy(ans, src, ln_cnt*col_cnt); }
-__mtx_callback bool mtx_move(__mtx &ans, __mtx &&src) { return _BAGRT ptr_move(ans, std::move(src)); }
+callback_matrix matrix_ptr init(uint64_t elem_cnt) {
+    if (elem_cnt) {
+        auto ans = new matrix_elem_t[elem_cnt];
+        std::fill_n(ans, elem_cnt, 0);
+        return ans;
+    }
+    else return nullptr;
+}
+callback_matrix_n auto init(std::initializer_list<std::initializer_list<matrix_elem_t>> src, uint64_t &ln_cnt, uint64_t &col_cnt) {
+    ln_cnt   = src.size(),
+    col_cnt  = src.begin()->size();
+    auto cnt = 0ull;
+    if constexpr (std::is_integral_v<matrix_elem_t>) {
+        auto ans = init<long double>(ln_cnt * col_cnt);
+        for (auto ln_temp : src) for (auto temp : ln_temp) *(ans + cnt++) = std::move(temp);
+        return ans;
+    } else {
+        auto ans = init<matrix_elem_t>(ln_cnt * col_cnt);
+        for (auto ln_temp : src) for (auto temp : ln_temp) *(ans + cnt++) = std::move(temp);
+        return ans;
+    }
+}
 
-__mtx_callback bool mtx_fill(__mtx &src, __mtx_elem &&val, uint64_t elem_cnt)
-{
-    if(src)
-    {
-        std::fill_n(src, elem_cnt, val);
-        return true;
-    }
-    else return false;
+callback_matrix matrix_ptr init_identity(uint64_t dim_cnt) {
+    if (dim_cnt == 0) return nullptr;
+    auto ans = init<matrix_elem_t>(dim_cnt * dim_cnt);
+    for(auto i = 0ull; i < dim_cnt; ++i) *(ans + i * (dim_cnt + 1)) = 1;
+    return ans;
 }
-__mtx_callback bool mtx_fill(__mtx &src, __mtx_elem &&val, uint64_t ln_cnt, uint64_t col_cnt) { return mtx_fill(src, std::move(val), ln_cnt*col_cnt); }
 
-__mtx_callback bool mtx_init_E(__mtx &src, uint64_t dms)
-{
-    if(src && dms)
-    {
-        mtx_fill(src, __mtx_elem(0), dms*dms);
-        for(auto i=0; i<dms; ++i) src[i*(dms+1)] = 1;
-        return true;
-    }
-    return false;
+callback_matrix matrix_ptr init_rand(uint64_t elem_cnt, const matrix_elem_t &fst_rng = 0, const matrix_elem_t &snd_rng = 0, uint64_t acc = 5) {
+    if (elem_cnt == 0) return nullptr;
+    auto ans = init<matrix_elem_t>(elem_cnt);
+    for (auto i = 0ull; i < elem_cnt; ++i)
+        if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = num_rand(fst_rng.number_format, snd_rng.number_format, acc);
+        else *(ans + i) = num_rand(fst_rng, snd_rng, acc);
+    return ans;
 }
-__mtx_callback bool mtx_init_rand(__mtx &src, uint64_t elem_cnt, __mtx_elem &&boundary_first, __mtx_elem &&boundary_second, __mtx_elem &&acc)
-{
-    if(src)
-    {
-        for (int i = 0; i < elem_cnt; ++i)
-            if(boundary_first == boundary_second) src[i] = (((double)_BAGRT rand_e() / (double)_BAGRT rand_e._Max) - 0.5) * 2.0;
-            else src[i] = _BAGRT rand_num(boundary_first, boundary_second, false, acc);
-        return true;
-    }
-    else return false;
+
+callback_matrices void recycle(matrices_ptr &...val) { ptr_reset(val...); }
+
+callback_matrix matrix_ptr copy(const matrix_ptr src, uint64_t elem_cnt) {
+    if (src && elem_cnt) return ptr_copy(src, elem_cnt);
+    else return nullptr;
 }
-__mtx_callback bool mtx_print(__mtx &src, uint64_t ln_cnt, uint64_t col_cnt)
-{
-    if(src)
-    {
-        auto elem_amt = ln_cnt * col_cnt;
-        for (auto i = 0; i < elem_amt; ++i)
-        {
-            std::cout << src[i];
-            if ((i + 1) % col_cnt) std::cout << '\t';
-            else std::cout << std::endl;
+callback_matrix bool copy(matrix_ptr &dest, uint64_t dest_elem_cnt, const matrix_ptr src, uint64_t elem_cnt) {
+    if (dest_elem_cnt != elem_cnt) ptr_alter(dest, dest_elem_cnt, elem_cnt, false);
+    return ptr_copy(dest, src, elem_cnt);
+}
+
+callback_matrix void move(matrix_ptr &dest, matrix_ptr &&src) { ptr_move(dest, std::move(src)); }
+
+callback_matrix void fill(matrix_ptr &dest, uint64_t elem_cnt, const matrix_elem_t &src = 0) { std::fill_n(dest, elem_cnt, src); }
+
+callback_matrix void print(matrix_ptr &src, uint64_t ln_cnt, uint64_t col_cnt) {
+    auto elem_cnt = ln_cnt * col_cnt;
+    if (elem_cnt == 0) std::cout << "[Null]" << std::endl;
+    for (auto i = 0ull; i < elem_cnt; ++i) {
+        std::cout << *(src + i);
+        if ((i + 1) % col_cnt) std::cout << '\t';
+        else std::cout << '\n';
+    }
+}
+
+callback_matrix bool compare(const matrix_ptr fst, const matrix_ptr snd, uint64_t elem_cnt) {
+    if (elem_cnt && fst && snd) {
+        for (auto i = 0ull; i < elem_cnt; ++i) if (*(fst + i) != *(snd + i)) return false;
+        return true; 
+    } else return false;
+}
+
+callback_matrix matrix_ptr absolute(const matrix_ptr src, uint64_t elem_cnt) { 
+    matrix_ptr ans = nullptr;
+    if (src && elem_cnt) {
+        ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i)
+            if (*(src + i) < 0) *(ans + i) = (-1) * (*(src + i));
+            else *(ans + i) = *(src + i);
+    }
+    return ans;
+}
+
+uint64_t pad_res_dir_cnt(uint64_t prev_pad, uint64_t rear_pad, uint64_t dir_cnt, uint64_t dir_dist) { return prev_pad + rear_pad + dir_cnt + (dir_cnt - 1) * dir_dist; }
+
+uint64_t crop_res_dir_cnt(uint64_t prev_crop, uint64_t rear_crop, uint64_t dir_cnt, uint64_t dir_dist) { return (dir_cnt - (prev_crop + rear_crop) + dir_dist) / (dir_dist + 1); }
+
+callback_matrix matrix_ptr pad(uint64_t &pad_ln_cnt, uint64_t &pad_col_cnt, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t top = 0, uint64_t right = 0, uint64_t bottom = 0, uint64_t left = 0, uint64_t ln_dist = 0, uint64_t col_dist = 0) {
+    pad_ln_cnt  = pad_res_dir_cnt(top, bottom, ln_cnt, ln_dist);
+    pad_col_cnt = pad_res_dir_cnt(left, right, col_cnt, col_dist);
+    if (src && ln_cnt && col_cnt && !(pad_ln_cnt == ln_cnt && pad_col_cnt == col_cnt)) {
+        auto ans = init<matrix_elem_t>(pad_ln_cnt * pad_col_cnt);
+        for (auto i = 0ull; i < ln_cnt; ++i) for (auto j = 0ull; j < col_cnt; ++j) {
+            auto curr_origin_no = elem_pos(i, j, col_cnt),
+                 curr_pad_no    = elem_pos(top + i * (ln_dist + 1), left + j * (col_dist + 1), pad_col_cnt);
+            *(ans + curr_pad_no) = *(src + curr_origin_no);
         }
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_equal(__mtx &first, __mtx &second, uint64_t elem_cnt)
-{
-    for(auto i=0; i<elem_cnt; ++i) if(first[i] != second[i]) return false;
-    return true;
-}
-__mtx_callback bool mtx_equal(__mtx &first, __mtx &second, uint64_t ln_cnt, uint64_t col_cnt) { return mtx_equal(first, second, ln_cnt*col_cnt); }
-
-uint64_t mtx_pad_cnt(uint64_t prev_pad, uint64_t rear_pad, uint64_t dir_cnt, uint64_t dir_distance) { return prev_pad + rear_pad + dir_cnt + (dir_cnt - 1) * dir_distance; }
-__mtx_callback bool mtx_pad(__mtx &ans, uint64_t ans_col_cnt, __mtx &src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t ln_t, uint64_t col_r, uint64_t ln_b, uint64_t col_l, uint64_t ln_dist, uint64_t col_dist)
-{
-    if(src && ans && ans_col_cnt && ln_cnt && col_cnt)
-    {
-        for(auto i=0; i<ln_cnt; ++i) for(auto j=0; j<col_cnt; ++j)
-        {
-            auto curr_pad_no = mtx_elem_pos(ln_t+i*(ln_dist+1), col_l+j*(col_dist+1), ans_col_cnt), curr_origin_no = mtx_elem_pos(i, j, col_cnt);
-            ans[curr_pad_no] = src[curr_origin_no];
-        }
-        return true;
-    }
-    else return false;
-}
-uint64_t mtx_crop_cnt(uint64_t prev_crop, uint64_t rear_crop, uint64_t dir_cnt, uint64_t dir_distance) { return (dir_cnt - (prev_crop + rear_crop) + dir_distance) / (dir_distance + 1); }
-__mtx_callback bool mtx_crop(__mtx &ans, uint64_t ans_ln_cnt, uint64_t ans_col_cnt, __mtx &src, uint64_t col_cnt, uint64_t ln_t, uint64_t col_r, uint64_t ln_b, uint64_t col_l, uint64_t ln_dist, uint64_t col_dist)
-{
-    if(src && ans && ans_col_cnt && ans_ln_cnt && col_cnt)
-    {
-        if(ln_t || col_r || ln_b || col_l || ln_dist || col_dist) for(auto i=0; i<ans_ln_cnt; ++i) for(auto j=0; j<ans_col_cnt; ++j)
-        {
-            auto curr_res_no = mtx_elem_pos(i, j, ans_col_cnt), curr_origin_no = mtx_elem_pos(ln_t+i*(ln_dist+1), col_l+j*(col_dist+1), col_cnt);
-            ans[curr_res_no] = src[curr_origin_no];
-        }
-        else return mtx_copy(ans, src, ans_ln_cnt, ans_col_cnt);
-        return true;
-    }
-    else return false;
+        return ans;
+    } else return copy(src, ln_cnt * col_cnt);
 }
 
-__mtx_callback __mtx_elem mtx_extm_val(__mtx &src, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_cnt, uint64_t col_cnt, uint64_t *&ln_ls, uint64_t *&col_ls, uint64_t &pos_ls_len, bool max_flag, bool get_extm_pos, uint64_t ln_dilation, uint64_t col_dilation)
-{
-    MEM_RECYCLE(ln_ls); MEM_RECYCLE(col_ls);
-    if(src && col_cnt && ln_cnt &&
-        from_ln>=0 && to_ln>=from_ln && ln_cnt>to_ln &&
-        from_col>=0 && to_col>=from_col && col_cnt>to_col)
-    {
-        pos_ls_len = 0;
-        auto ans = src[mtx_elem_pos(from_ln, from_col, col_cnt)];
-        for(auto i=from_ln; i<=to_ln; ++(i+=ln_dilation)) for(auto j=from_col; j<=to_col; ++(j+=col_dilation))
-        {
-            auto curr_no = mtx_elem_pos(i, j, col_cnt);
-            auto curr_ln = i, curr_col = j;
-            if((max_flag&&src[curr_no]>ans) || (!max_flag&&src[curr_no]<ans))
-            {
-                ans = src[curr_no];
-                if(get_extm_pos)
-                {
-                    MEM_RECYCLE(ln_ls); MEM_RECYCLE(col_ls); pos_ls_len = 0;
-                    _BAGRT ptr_insert(ln_ls, std::move(curr_ln), pos_ls_len, pos_ls_len);
-                    _BAGRT ptr_insert(col_ls, std::move(curr_col), pos_ls_len, pos_ls_len);
-                    ++ pos_ls_len;
-                }
-            }
-            else if(src[curr_no]==ans && get_extm_pos)
-            {
-                _BAGRT ptr_insert(ln_ls, std::move(curr_ln), pos_ls_len, pos_ls_len);
-                _BAGRT ptr_insert(col_ls, std::move(curr_col), pos_ls_len, pos_ls_len);
-                ++ pos_ls_len;
-            }
-            else continue;
+callback_matrix matrix_ptr crop(uint64_t &crop_ln_cnt, uint64_t &crop_col_cnt, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t top = 0, uint64_t right = 0, uint64_t bottom = 0, uint64_t left = 0, uint64_t ln_dist = 0, uint64_t col_dist = 0) {
+    crop_ln_cnt  = crop_res_dir_cnt(top, bottom, ln_cnt, ln_dist);
+    crop_col_cnt = crop_res_dir_cnt(left, right, col_cnt, col_dist);
+    if (src && ln_cnt && col_cnt && !(crop_ln_cnt == ln_cnt && crop_col_cnt == col_cnt)) {
+        auto ans = init<matrix_elem_t>(crop_ln_cnt * crop_col_cnt);
+        for (auto i = 0ull; i < crop_ln_cnt; ++i) for (auto j = 0ull; j < crop_col_cnt; ++j) {
+            auto curr_res_no    = elem_pos(i, j, crop_col_cnt),
+                 curr_origin_no = elem_pos(top + i * (ln_dist + 1), left + j * (col_dist + 1), col_cnt);
+            *(ans + curr_res_no) = *(src + curr_origin_no);
+        }
+        return ans;
+    } else return copy(src, ln_cnt * col_cnt);
+}
+
+callback_matrix matrix_elem_t extremum(net_set<pos> &elem_pos_set, bool get_max, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) {
+    matrix_elem_t ans {};
+    if(src && col_cnt && ln_cnt && from_ln >= 0 && to_ln >= from_ln && ln_cnt > to_ln && from_col >= 0 && to_col >= from_col && col_cnt > to_col) {
+        net_sequence<pos> elem_pos_seq;
+        ans = *(src + elem_pos(from_ln, from_col, col_cnt));
+        for (auto i = from_ln; i <= to_ln; ++(i += ln_dilate)) for (auto j = from_col; j <= to_col; ++(j += col_dilate)) {
+            auto curr_no  = elem_pos(i, j, col_cnt);
+            pos  curr_pos {i, j};
+            if ((get_max && src[curr_no] > ans) || (!get_max && src[curr_no] < ans)) {
+                ans = *(src + curr_no);
+                elem_pos_seq.clear();
+                elem_pos_seq.emplace_back(curr_pos);
+            } else if (*(src + curr_no) == ans) elem_pos_seq.emplace_back(curr_pos);
+        }
+        elem_pos_seq.shrink();
+        elem_pos_set = std::move(elem_pos_seq);
+    }
+    return ans;
+}
+
+callback_matrix matrix_ptr sub(uint64_t &sub_ln_cnt, uint64_t &sub_col_cnt, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) {
+    if (src && col_cnt && ln_cnt && from_ln >= 0 && to_ln >= from_ln && ln_cnt > to_ln && from_col >= 0 && to_col >= from_col && col_cnt > to_col) {
+        sub_ln_cnt  = (to_ln - from_ln) / (1 + ln_dilate) + 1;
+        sub_col_cnt = (to_col - from_col) / (1 + col_dilate) + 1;
+        if (sub_ln_cnt == ln_cnt && sub_col_cnt == col_cnt) return copy(src, ln_cnt * col_cnt);
+        auto ans = init<matrix_elem_t>(sub_ln_cnt * sub_col_cnt);
+        auto cnt = 0ull;
+        for (auto i = from_ln; i <= to_ln; ++(i += ln_dilate)) for (auto j = from_col; j <= to_col; ++(j += col_dilate)) *(ans + cnt++) = *(src + elem_pos(i, j, col_cnt));
+        return ans;
+    }
+    return nullptr;
+}
+
+callback_matrix matrix_elem_t sum(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) {
+    auto sub_src = sub(ln_cnt, col_cnt, src, ln_cnt, col_cnt, from_ln, to_ln, from_col, to_col, ln_dilate, col_dilate);
+    if (sub_src == nullptr) return 0;
+    matrix_elem_t ans      = 0;
+    auto          elem_cnt = ln_cnt * col_cnt;
+    for (auto i = 0ull; i < elem_cnt; ++i) ans += *(sub_src + i);
+    recycle(sub_src);
+    return ans;
+}
+
+callback_matrix matrix_ptr add(const matrix_ptr fst, const matrix_ptr snd, uint64_t elem_cnt, bool subtract = false) {
+    if (elem_cnt && fst && snd) {
+        auto ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i)
+            if (subtract) *(ans + i) = *(fst + i) - *(snd + i);
+            else *(ans + i) = *(fst + i) + *(snd + i);
+        return ans;
+    }
+    return nullptr;
+}
+
+/* ans_ln_cnt  = fst_ln_cnt
+ * ans_col_cnt = snd_col_cnt
+ */
+callback_matrix matrix_ptr mult(const matrix_ptr fst, uint64_t fst_ln_cnt, uint64_t fst_col_cnt, const matrix_ptr snd, uint64_t snd_col_cnt) {
+    if (fst && snd && fst_ln_cnt && fst_col_cnt && snd_col_cnt) {
+        auto ans = init<matrix_elem_t>(fst_ln_cnt * snd_col_cnt);
+        for (auto i = 0ull; i < fst_ln_cnt; ++i) for (auto j = 0ull; j < fst_col_cnt; ++j) {
+            auto coe = *(fst + elem_pos(i, j, fst_col_cnt));
+            for (auto k = 0ull; k < snd_col_cnt; ++k) *(ans + elem_pos(i, k, snd_col_cnt)) += coe * (*(snd + elem_pos(j, k, snd_col_cnt)));
         }
         return ans;
     }
-    else return 0;
+    return nullptr;
 }
-__mtx_callback __mtx_elem mtx_sum(__mtx &src, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_cnt, uint64_t col_cnt, uint64_t ln_dilation, uint64_t col_dilation)
-{
-    auto sum = 0.0;
-    if(src && col_cnt && ln_cnt &&
-        from_ln>=0 && to_ln>=from_ln && ln_cnt>to_ln &&
-        from_col>=0 && to_col>=from_col && col_cnt>to_col)
-    {
-        auto child_ln_cnt = mtx_child_vec_dir_cnt(from_ln, to_ln, ln_dilation),
-            child_col_cnt = mtx_child_vec_dir_cnt(from_col, to_col, col_dilation);
-        auto temp_elem_cnt = child_ln_cnt * child_col_cnt;
-        MTX_INIT(__mtx_elem, temp, temp_elem_cnt);
-        if(mtx_child_vec(temp, child_ln_cnt, child_col_cnt, src, from_ln, to_ln, from_col, to_col, ln_cnt, col_cnt, ln_dilation, col_dilation)) for(auto i=0; i<temp_elem_cnt; ++i) sum += temp[i];
-        MTX_RESET(temp);        
-    }
-    return sum;
-}
-
-__mtx_callback bool mtx_add(__mtx &ans, __mtx &l_src, __mtx &r_src, uint64_t ln_cnt, uint64_t col_cnt, bool nega)
-{
-    if(ans && l_src && r_src && ln_cnt && col_cnt)
-    {
-        auto elem_cnt = ln_cnt * col_cnt;
-        for(auto i=0; i<elem_cnt; ++i)
-            if(nega) ans[i] = l_src[i] - r_src[i];
-            else ans[i] = l_src[i] + r_src[i];
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_mult(__mtx &ans, __mtx &l_src, __mtx &r_src, uint64_t l_ln_cnt, uint64_t l_col_cnt, uint64_t r_ln_cnt, uint64_t r_col_cnt)
-{
-    if(ans && l_src && r_src && l_ln_cnt && l_col_cnt && r_ln_cnt && r_col_cnt && l_col_cnt==r_ln_cnt)
-    {
-        mtx_fill(ans, __mtx_elem(0), l_ln_cnt*r_col_cnt);
-        for (int i=0; i<l_ln_cnt; ++i) for(auto j=0; j<l_col_cnt; ++j)
-        {
-            auto coe = l_src[mtx_elem_pos(i, j, l_col_cnt)];
-            for(auto k=0; k<r_col_cnt; ++k)
-            ans[mtx_elem_pos(i, k, r_col_cnt)] += coe * r_src[mtx_elem_pos(j, k, r_col_cnt)];
-        }
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_mult(__mtx &ans, __mtx &src, __mtx_elem &&val, uint64_t ln_cnt, uint64_t col_cnt)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        auto elem_cnt = ln_cnt * col_cnt;
-        for(auto i=0; i<elem_cnt; ++i) ans[i] = src[i] * val;
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_elem_cal_opt(__mtx &ans, __mtx &l_src, __mtx &r_src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t opt_idx)
-{
-    if(ans && l_src && r_src && ln_cnt && col_cnt)
-    {
-        auto elem_cnt = ln_cnt * col_cnt;
-        for(auto i=0; i<elem_cnt; ++i)
-            switch (opt_idx)
-            {
-            case MTX_ELEM_MULT:
-                ans[i] = l_src[i] * r_src[i];
-                break;
-            case MTX_ELEM_DIV:
-                if(r_src[i])
-                {
-                    ans[i] = l_src[i] / r_src[i];
-                    break;
-                }
-                else return false;
-            default: return false;
-            }
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_elem_cal_opt(__mtx &ans, __mtx &src, __mtx_elem &&para, uint64_t ln_cnt, uint64_t col_cnt, uint64_t opt_idx)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        auto elem_cnt = ln_cnt * col_cnt;
-        if(para != 1)
-        {
-            for(auto i=0; i<elem_cnt; ++i) switch (opt_idx)
-            {
-            case MTX_ELEM_POW:
-                ans[i] = _BAGRT __power_(src[i], para);
-                break;
-            case MTX_ELEM_DIV:
-                if(para != 0)
-                {
-                    ans[i] = src[i] / para;
-                    break;
-                }
-                else return false;
-            default: return false;
-            }
-        }
-        else mtx_copy(ans, src, ln_cnt, col_cnt);
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_broadcast_add(__mtx &ans, __mtx &src, uint64_t elem_cnt, __mtx_elem &&val, bool nega)
-{
-    if(ans && src && elem_cnt)
-    {
-        for(auto i=0; i<elem_cnt; ++i)
-            if(nega) ans[i] -= val;
-            else ans[i] += val;
-        return true;
-    }
-    else return false;
-}
-
-__mtx_callback bool mtx_abs(__mtx &src, uint64_t elem_cnt)
-{
-    if(src)
-    {
-        for(auto i=0; i<elem_cnt; ++i) if(src[i] < 0) src[i] *= (-1);
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_transposition(__mtx &ans, __mtx &src, uint64_t ln_cnt, uint64_t col_cnt)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        auto elem_cnt = ln_cnt * col_cnt;
-        for (auto i = 0; i < ln_cnt; ++i) for (auto j = 0; j < col_cnt; ++j)
-            ans[mtx_elem_pos(j, i, ln_cnt)] = src[mtx_elem_pos(i, j, col_cnt)];
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_swap_elem(__mtx &ans, __mtx &src, uint64_t l_pos, uint64_t r_pos, uint64_t ln_cnt, uint64_t col_cnt, bool is_ln)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        mtx_copy(ans, src, ln_cnt, col_cnt);
-        if(is_ln) for(auto i=0; i<col_cnt; ++i) std::swap(ans[mtx_elem_pos(l_pos, i, col_cnt)], ans[mtx_elem_pos(r_pos, i, col_cnt)]);
-        else for(auto i=0; i<ln_cnt; ++i) std::swap(ans[mtx_elem_pos(i, l_pos, col_cnt)], ans[mtx_elem_pos(i, r_pos, col_cnt)]);
-        return true;
-    }
-    else return false;        
-}
-__mtx_callback __mtx_elem mtx_det(__mtx &src, uint64_t dms)
-{
-    if(src && dms)
-    {
-        if (dms == 1)
-        return src[IDX_ZERO];
-        MTX_INIT(__mtx_elem, ac, (dms-1)*(dms-1));
-        int mov = 0;
-        __mtx_elem sum = 0.0;
-        for (int arow = 0; arow < dms; arow++)
-        {
-            for (int brow = 0; brow < dms - 1; brow++)
-            {
-                mov = arow > brow ? 0 : 1;
-                for (int j = 0; j < dms - 1; ++j)
-                    ac[brow * (dms - 1) + j] = src[(brow + mov) * dms + j + 1];
-            }
-            int flag = (arow % 2 == 0 ? 1 : -1);
-            sum += flag * src[arow * dms] * mtx_det(ac, dms - 1);
-        }
-        MTX_RESET(ac);
-        return sum;
-    }
-    else return NAN;
-}
-__mtx_callback bool mtx_cofactor(__mtx &ans, __mtx &src, uint64_t ln, uint64_t col, uint64_t dms)
-{
-    if(ans && src && dms)
-    {
-        auto ans_dms = dms - 1;
-        auto elem_cnt = dms * dms;
-        for(auto i=0; i<elem_cnt; ++i)
-        {
-            auto curr_ln = 0ull, curr_col = 0ull;
-            mtx_elem_pos(curr_ln, curr_col, i, dms);
-            if(curr_ln!=ln && curr_col!=col)
-            {
-                auto curr_ans_ln = curr_ln, curr_ans_col = curr_col;
-                if(curr_ln > ln) -- curr_ans_ln;
-                if(curr_col > col) -- curr_ans_col;
-                ans[mtx_elem_pos(curr_ans_ln, curr_ans_col, ans_dms)] = src[i];
-            }
-        }
-        return true;
-    }
-    else return false;
-}
-__mtx_callback __mtx_elem mtx_algebraic_cofactor(__mtx &src, uint64_t ln, uint64_t col, uint64_t dms)
-{
-    MTX_INIT(__mtx_elem, cofactor, (dms-1)*(dms-1));
-    __mtx_elem ans = 0.0;
-    if(mtx_cofactor(cofactor, src, ln, col, dms)) ans = mtx_det(cofactor, dms-1);
-    MTX_RESET(cofactor);
+callback_matrix matrix_ptr mult(const matrix_ptr val, uint64_t elem_cnt, const matrix_elem_t &coe) {
+    if (coe == 1) return copy(val, elem_cnt);
+    auto ans = init<matrix_elem_t>(elem_cnt);
+    if (coe == 0) return ans;
+    for (auto i = 0ull; i < elem_cnt; ++i) *(ans + i) = *(val + i) * coe;
     return ans;
 }
-__mtx_callback bool mtx_adjugate(__mtx &ans, __mtx &src, uint64_t dms)
-{
-    if(ans && src && dms)
-    {
-        auto elem_cnt = dms * dms;
-        for(auto i=0; i<elem_cnt; ++i)
-        {
-            auto curr_ln = 0ull, curr_col = 0ull;
-            if(!mtx_elem_pos(curr_ln, curr_col, i, dms)) return false;
-            auto coe = 1;
-            if((curr_ln+curr_col) % 2) coe = -1;
-            ans[mtx_elem_pos(curr_col, curr_ln, dms)] = coe * mtx_algebraic_cofactor(src, curr_ln, curr_col, dms);
+
+callback_matrix matrix_ptr elem_operate(const matrix_ptr val, uint64_t elem_cnt, const matrix_elem_t &para, uint64_t operation, bool para_fst = false, long double epsilon = 1e-5) {
+    matrix_ptr ans = nullptr;
+    if (val && elem_cnt) {
+        ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i) {
+            auto elem      = *(val + i),
+                 curr_val  = para;
+            if (para_fst) std::swap(elem, curr_val);
+            switch (operation) {
+            case MATRIX_ELEM_DIV:
+                if (curr_val == 0) curr_val = epsilon;
+                *(ans + i) = elem / curr_val;
+                break;
+            case MATRIX_ELEM_POW:
+                if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = net_decimal::dec_pow(elem, curr_val);
+                else *(ans + i) = std::pow(elem, curr_val);
+                break;
+            default: recycle(ans); break;
+            }
+            if (ans == nullptr) break;
         }
-        return true;
     }
-    return true;
+    return ans;
 }
-__mtx_callback bool mtx_inverser(__mtx &ans, __mtx &src, uint64_t dms)
-{
-    if(ans && src && dms)
-    {
-        auto elem_cnt = dms * dms;
-        auto val_det = mtx_det(src, dms);
-        MTX_INIT(__mtx_elem, val_adj, elem_cnt);
-        mtx_adjugate(val_adj, src, dms);
-        for(auto i=0; i<elem_cnt; ++i) ans[i] = val_adj[i] / val_det;
-        MTX_RESET(val_adj);
-        return true;
+callback_matrix matrix_ptr elem_operate(const matrix_ptr fst, const matrix_ptr snd, uint64_t elem_cnt, uint64_t operation, bool elem_swap = false, long double epsilon = 1e-5) {
+    matrix_ptr ans = nullptr;
+    if (fst && snd && elem_cnt) {
+        ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i) {
+            switch (operation) {
+            case MATRIX_ELEM_DIV: {
+                auto fst_elem = *(fst + i),
+                     snd_elem = *(snd + i);
+                if (elem_swap) std::swap(fst_elem, snd_elem);
+                if (snd_elem == 0) snd_elem = epsilon;
+                *(ans + i) = fst_elem / snd_elem;
+                break;
+            }
+            case MATRIX_ELEM_MULT: *(ans + i) = *(fst + i) * (*(snd + i)); break;
+            default: recycle(ans); break;
+            }
+            if (ans == nullptr) break;
+        }
     }
-    else return false;
+    return ans;
 }
-__mtx_callback __mtx_elem mtx_max_eigenvalue(__mtx &src, __mtx &w, uint64_t dms, __mtx_elem &&acc, __mtx_elem &&init_elem)
-{
-    if(src && dms && w)
-    {
-        __mtx_elem lambda = 0.0, lambda_temp = 0.0;
-        MTX_INIT(__mtx_elem, x, dms);
-        uint64_t *ptr_temp_true = nullptr, *ptr_temp_false = nullptr, ptr_temp_len = 0;
-        mtx_fill(x, std::move(init_elem), dms);
-        do
-        {
-            lambda = lambda_temp;
-            MTX_INIT(__mtx_elem, temp, dms); MTX_INIT(__mtx_elem, temp_abs, dms);
-            mtx_copy(temp, x, dms);
-            mtx_copy(temp_abs, temp, dms);
-            mtx_abs(temp_abs, dms);
-            __mtx_elem max = mtx_extm_val(temp_abs, 0, dms-1, 0, 0, dms, 1, ptr_temp_true, ptr_temp_false, ptr_temp_len, true, false);
-            for (int i=0; i<dms; ++i) x[i] /= max;
-            for (int i=0; i<dms; ++i) w[i] = x[i];
-            __mtx_elem sum = 0.0;
-            for (int i=0; i<dms; ++i) sum += w[i];
-            for (int i=0; i<dms; ++i) w[i] /= sum;
-            mtx_mult(x, src, temp, dms, dms, dms, 1);
-            mtx_copy(temp, x, dms);
-            lambda_temp = mtx_extm_val(temp, 0, dms-1, 0, 0, dms, 1, ptr_temp_true, ptr_temp_false, ptr_temp_len, true, false);
-            MTX_RESET(temp); MTX_RESET(temp_abs);
-        } while (std::abs(lambda_temp - lambda) > acc);
-        MTX_RESET(x);
-        return lambda;
+
+callback_matrix matrix_ptr broadcast_add(const matrix_ptr val, uint64_t elem_cnt, const matrix_elem_t &para, bool subtract = false, bool para_fst = false) {
+    matrix_ptr ans = nullptr;
+    if (val && elem_cnt) {
+        ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i)
+            if (subtract) {
+                auto subtrahend = *(val + i),
+                     minuend    = para;
+                if (para_fst) std::swap(subtrahend, minuend);
+                *(ans + i) = subtrahend - minuend;
+            }
+            else *(ans + i) = *(val + i) + para;
     }
-    else return NAN;
+    return ans;
 }
-__mtx_callback uint64_t mtx_rank(__mtx &src, uint64_t ln_cnt, uint64_t col_cnt)
-{
-    if(ln_cnt && col_cnt && src)
-    {
-        MTX_PTR(__mtx_elem, ans);
-        if(ln_cnt > col_cnt)
-        {
+
+callback_matrix matrix_ptr transposition(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt) {
+    matrix_ptr ans = nullptr;
+    if (src && ln_cnt && col_cnt) {
+        ans = init<matrix_elem_t>(ln_cnt * col_cnt);
+        for (auto i = 0ull; i < ln_cnt; ++i) for (auto j = 0ull; j < col_cnt; ++j) *(ans + elem_pos(j, i, ln_cnt)) = *(src + elem_pos(i, j, col_cnt));
+    }
+    return ans;
+}
+
+callback_matrix matrix_ptr ln_col_swap(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t fst_ln_col, uint64_t snd_ln_col, bool ln_dir = true) {
+    matrix_ptr ans = nullptr;
+    if (snd_ln_col < fst_ln_col) std::swap(snd_ln_col, fst_ln_col);
+    if(src && ln_cnt && col_cnt && ((ln_dir && snd_ln_col < ln_cnt) || (!ln_dir && snd_ln_col < col_cnt))) {
+        ans = copy(src, ln_cnt * col_cnt);
+        if (fst_ln_col == snd_ln_col) return ans;
+        if (ln_dir) for (auto i = 0ull; i < col_cnt; ++i) std::swap(*(ans + elem_pos(fst_ln_col, i, col_cnt)), *(ans + elem_pos(snd_ln_col, i, col_cnt)));
+        else for (auto i = 0ull; i < ln_cnt; ++i) std::swap(*(ans + elem_pos(i, fst_ln_col, col_cnt)), *(ans + elem_pos(i, snd_ln_col, col_cnt)));
+    }
+    return ans;
+}
+
+callback_matrix uint64_t rank(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt) {
+    if (ln_cnt && col_cnt && src) {
+        auto elem_cnt = ln_cnt * col_cnt;
+        auto ans      = new long double[elem_cnt];
+        for (auto i = 0ull; i < elem_cnt; ++i) {
+            if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = (*(src + i)).number_format;
+            else *(ans + i) = (*(src + i));
+        }
+        if (ln_cnt > col_cnt) {
+            ans = transposition(ans, ln_cnt, col_cnt);
             std::swap(ln_cnt, col_cnt);
-            MTX_ALLOC(__mtx_elem, ans, col_cnt*ln_cnt);
-            mtx_transposition(ans, src, ln_cnt, col_cnt);
         }
-        else
-        {
-            MTX_ALLOC(__mtx_elem, ans, ln_cnt*col_cnt);
-            mtx_copy(ans, src, ln_cnt, col_cnt);
-        }
-        auto rank_val = 0;
-        for(auto i=0; i<col_cnt; ++i)
-        {
+        auto rank_val = 0ull;
+        for (auto i = 0ull; i < col_cnt; ++i) {
             bool elim_flag = true;
-            for(auto j=rank_val; j<ln_cnt; ++j)
-            {
-                auto elim_val = ans[mtx_elem_pos(j, i, col_cnt)];
-                if(elim_val)
-                {
-                    if(elim_flag)
-                    {
-                        if(elim_val != 1) for(auto k=i; k<col_cnt; k++) ans[mtx_elem_pos(j, k, col_cnt)] /= elim_val;
-                        if(j!=i)
-                        {
-                            MTX_INIT(__mtx_elem, temp, ln_cnt*col_cnt);
-                            mtx_copy(temp, ans, ln_cnt, col_cnt);
-                            mtx_swap_elem(ans, temp, i, j, ln_cnt, col_cnt);
-                            MTX_RESET(temp);
-                        }
+            for(auto j = rank_val; j < ln_cnt; ++j) {
+                auto elim_val = *(ans + elem_pos(j, i, col_cnt));
+                if (elim_val) {
+                    if (elim_flag) {
+                        if (elim_val != 1) for (auto k = i; k < col_cnt; ++k) *(ans + elem_pos(j, k, col_cnt)) /= elim_val;
+                        if (j != i) ans = ln_col_swap(ans, ln_cnt, col_cnt, i, j);
                         ++ rank_val;
                         elim_flag = false;
                     }
-                    else for(auto k=i; k<col_cnt; ++k) ans[mtx_elem_pos(j, k, col_cnt)] -= ans[mtx_elem_pos(i, k, col_cnt)] * elim_val;
+                    else for(auto k = i; k < col_cnt; ++k) *(ans + elem_pos(j, k, col_cnt)) -= *(ans + elem_pos(i, k, col_cnt)) * elim_val;
                 }
             }
         }
-        MTX_RESET(ans);
+        recycle(ans);
         return rank_val;
     }
     else return NAN;
 }
 
-__mtx_callback bool mtx_LU(__mtx &ans, __mtx &src, uint64_t dms)
+callback_matrix matrix_elem_t det(const matrix_ptr src, uint64_t dim_cnt)
 {
-    if(ans && src && dms)
-    {
-        auto elem_cnt = dms * dms;
-        mtx_copy(ans, src, elem_cnt);
-        MTX_INIT(__mtx_elem, e, elem_cnt);
-        MTX_INIT(__mtx_elem, l, elem_cnt);
-        mtx_init_E(l, dms);
-        MTX_INIT(__mtx_elem, temp, elem_cnt);
-        for (int i = 0; i < dms - 1; ++i)
-        {
-            mtx_init_E(e, dms);
-            for (int j = dms - 1; j > i; --j) e[mtx_elem_pos(j, i, dms)] = (-1.0) * ans[mtx_elem_pos(j, i, dms)] / ans[mtx_elem_pos(i, i, dms)];
-            for (int j = dms - 1; j > i; --j) l[mtx_elem_pos(j, i, dms)] = (-1.0) * e[mtx_elem_pos(j, i, dms)];
-            for (int j = dms - 1; j > i; --j) ans[mtx_elem_pos(j, i, dms)] = (-1.0) * e[mtx_elem_pos(j, i, dms)];
-            mtx_copy(temp, ans, elem_cnt);
-            mtx_mult(ans, e, temp, dms, dms, dms, dms);
+    if(src && dim_cnt) {
+        if (dim_cnt == 1) return *src;
+        auto ac = init<matrix_elem_t>((dim_cnt - 1) * (dim_cnt - 1));
+        auto mov = 0;
+        matrix_elem_t sum = 0;
+        for (auto arow = 0ull; arow < dim_cnt; ++arow) {
+            for (auto brow = 0ull; brow < dim_cnt - 1; ++brow) {
+                mov = arow > brow ? 0 : 1;
+                for (auto i = 0ull; i < dim_cnt - 1; ++i)
+                    *(ac + brow * (dim_cnt - 1) + i) = *(src + (brow + mov) * dim_cnt + i + 1);
+            }
+            matrix_elem_t flag = (arow % 2 == 0 ? 1 : -1);
+            sum += flag * (*(src + arow * dim_cnt)) * det(ac, dim_cnt - 1);
         }
-        // get the inversion matrix
-        for (int i = 0; i < dms; ++i) for (int j = 0; j < i; ++j) ans[mtx_elem_pos(i, j, dms)] = l[mtx_elem_pos(i, j, dms)];
-        MTX_RESET(e); MTX_RESET(l); MTX_RESET(temp);
-        return true;
+        recycle(ac);
+        return sum;
     }
-    else return false;
+    else return NAN;
 }
-__mtx_callback bool mtx_equation(__mtx &ans, __mtx &coefficient, __mtx &b, uint64_t dms)
-{
-    if(ans && coefficient && b && dms)
-    {
-        auto elem_cnt = dms * dms;
-        MTX_INIT(__mtx_elem, lu, elem_cnt);
-        mtx_LU(lu, coefficient, dms);
-        MTX_INIT(__mtx_elem, e, elem_cnt); MTX_INIT(__mtx_elem, l, elem_cnt); MTX_INIT(__mtx_elem, u, elem_cnt);
-        mtx_init_E(e, dms); mtx_init_E(l, dms); mtx_init_E(u, dms);
-        MTX_INIT(__mtx_elem, y, dms);
-        for (int i = 0; i < dms; ++i) for (int j = 0; j < dms; ++j)
-            if (i <= j) u[mtx_elem_pos(i, j, dms)] = lu[mtx_elem_pos(i, j, dms)];
-            else l[mtx_elem_pos(i, j, dms)] = lu[mtx_elem_pos(i, j, dms)];
-        for (int i = 0; i < dms; ++i) if (i)
-        {
-            __mtx_elem temp = 0.0;
-            for (int j=0; j < i; ++j) temp += y[j] * l[mtx_elem_pos(i, j, dms)] * 1.0;
-            y[i] = b[i] - temp;
+
+// ans_dim_cnt = dim_cnt - 1
+callback_matrix matrix_ptr cofactor(const matrix_ptr src, uint64_t ln, uint64_t col, uint64_t dim_cnt) {
+    if(src && dim_cnt && ln < dim_cnt && col < dim_cnt) {
+        auto elem_cnt     = dim_cnt * dim_cnt,
+             ans_dim_cnt  = dim_cnt - 1,
+             ans_elem_cnt = ans_dim_cnt * ans_dim_cnt;
+        auto ans = init<matrix_elem_t>(ans_elem_cnt);
+        for(auto i = 0ull; i < elem_cnt; ++i) {
+            auto curr_pos = elem_pos(i, dim_cnt);
+            if (curr_pos.ln != ln && curr_pos.col != col) {
+                auto curr_ans_ln  = curr_pos.ln,
+                     curr_ans_col = curr_pos.col;
+                if (curr_ans_ln > ln) -- curr_ans_ln;
+                if (curr_ans_col > col) -- curr_ans_col;
+                *(ans + elem_pos(curr_ans_ln, curr_ans_col, ans_dim_cnt)) = *(src + i);
+            }
         }
-        else y[i] = b[i];
-        for (int i=dms; i>0; --i) if (i - dms)
-        {
-            __mtx_elem temp = 0.0;
-            for (int n=i-1; n<dms-1; ++n) temp += u[mtx_elem_pos(i-1, n+1, dms)] * ans[n+1];
-            ans[i-1] = (y[i-1] - temp) / u[mtx_elem_pos(i-1, i-1, dms)];
-        }
-        else ans[dms-1] = y[dms-1] / u[mtx_elem_pos(dms-1, dms-1, dms)];
-        MTX_RESET(lu); MTX_RESET(e); MTX_RESET(l); MTX_RESET(u); MTX_RESET(y);
-        return true;
+        return ans;
     }
-    else return false;
+    return nullptr;
 }
-__mtx_callback bool mtx_jacobi_iterate(__mtx &ans, __mtx &coefficient, __mtx &b, uint64_t dms, __mtx_elem &&acc, __mtx_elem &&init_elem)
-{
-    if(ans && coefficient && b && dms && init_elem>0)
-    {
-        MTX_INIT(__mtx_elem, temp, dms);
-        mtx_fill(temp, std::move(init_elem), dms);
+
+callback_matrix matrix_elem_t cofactor_algebra(const matrix_ptr src, uint64_t ln, uint64_t col, uint64_t dim_cnt) {
+    auto cof = cofactor(src, ln, col, dim_cnt);
+    if (cof == nullptr) return 0;
+    auto ans = det(cof, dim_cnt - 1);
+    recycle(cof);
+    return ans;
+}
+
+callback_matrix matrix_ptr adjugate(const matrix_ptr src, uint64_t dim_cnt) {
+    matrix_ptr ans = nullptr;
+    if (src && dim_cnt) {
+        auto elem_cnt = dim_cnt * dim_cnt;
+        ans = init<matrix_elem_t>(elem_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i) {
+            auto curr_pos = elem_pos(i, dim_cnt);
+            auto coe = 1;
+            if ((curr_pos.ln + curr_pos.col) % 2) coe = -1;
+            *(ans + elem_pos(curr_pos.col, curr_pos.ln, dim_cnt)) = coe * cofactor_algebra(src, curr_pos.ln, curr_pos.col, dim_cnt);
+        }
+    }
+    return ans;
+}
+
+callback_matrix matrix_ptr inverser(const matrix_ptr src, uint64_t dim_cnt) {
+    auto det_val = det(src, dim_cnt);
+    if (src && dim_cnt && det_val != 0) {
+        auto elem_cnt = dim_cnt * dim_cnt;
+        auto ajg_val = adjugate(src, dim_cnt);
+        for (auto i = 0ull; i < elem_cnt; ++i) *(ajg_val + i) /= det_val;
+        return ajg_val;
+    } else return nullptr;
+}
+
+callback_matrix auto max_eigen(const matrix_ptr src, matrix_ptr &w, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-5) {
+    if (src && dim_cnt) {
+        matrix_elem_t lambda      = 0,
+                      lambda_temp = 0,
+                      acc_dist    = 0;
+        w      = init<matrix_elem_t>(dim_cnt);
+        auto x = init<matrix_elem_t>(dim_cnt);
+        fill(x, dim_cnt, init_elem);
+        do {
+            net_set<pos> temp_max_pos;
+            lambda        = lambda_temp;
+            auto temp     = copy(x, dim_cnt);
+            auto temp_abs = absolute(temp, dim_cnt);
+            auto max      = extremum(temp_max_pos, true, temp_abs, dim_cnt, 1, 0, dim_cnt - 1, 0, 0);
+            for (auto i = 0ull; i < dim_cnt; ++i) *(x + i) /= max;
+            for (auto i = 0ull; i < dim_cnt; ++i) *(w + i)  = *(x + i);
+            matrix_elem_t sum = 0;
+            for (auto i = 0ull; i < dim_cnt; ++i) sum      += *(w + i);
+            for (auto i = 0ull; i < dim_cnt; ++i) *(w + i) /= sum;
+            move(x, mult(src, dim_cnt, dim_cnt, x, 1));
+            temp = copy(x, dim_cnt);
+            lambda_temp = extremum(temp_max_pos, true, temp, dim_cnt, 1, 0, dim_cnt - 1, 0, 0);
+            recycle(temp, temp_abs);
+            if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) acc_dist = (lambda - lambda_temp).absolute;
+            else acc_dist = std::abs(lambda - lambda_temp);
+        } while (acc_dist > acc);
+        recycle(x);
+        return lambda;
+    } else return nullptr;
+}
+
+callback_matrix matrix_ptr LU(const matrix_ptr src, uint64_t dim_cnt) {
+    if (src && dim_cnt) {
+        auto elem_cnt = dim_cnt * dim_cnt;
+        auto ans      = copy(src, elem_cnt);
+        auto l        = init_identity<matrix_elem_t>(dim_cnt);
+        matrix_ptr e  = nullptr;
+        for (auto i = 0ull; i < dim_cnt - 1; ++i) {
+            move(e, init_identity<matrix_elem_t>(dim_cnt));
+            for (auto j = dim_cnt - 1; j > i; --j) *(e + elem_pos(j, i, dim_cnt)) = (-1) * (*(ans + elem_pos(j, i, dim_cnt))) / (*(ans + elem_pos(i, i, dim_cnt)));
+            for (auto j = dim_cnt - 1; j > i; --j) *(l + elem_pos(j, i, dim_cnt)) = (-1) * (*(e + elem_pos(j, i, dim_cnt)));
+            for (auto j = dim_cnt - 1; j > i; --j) *(ans + elem_pos(j, i, dim_cnt)) = (-1) * (*(e + elem_pos(j, i, dim_cnt)));
+            move(ans, mult(e, dim_cnt, dim_cnt, ans, dim_cnt));
+        }
+        for (auto i = 0ull; i < dim_cnt; ++i) for (auto j = 0ull; j < i; ++j) *(ans + elem_pos(i, j, dim_cnt)) = *(l + elem_pos(i, j, dim_cnt));
+        recycle(e, l);
+        return ans;
+    } else return nullptr;
+}
+
+callback_matrix matrix_ptr linear_equation(const matrix_ptr coefficient, const matrix_ptr b, uint64_t dim_cnt) {
+    if (b && coefficient && dim_cnt) {
+        auto elem_cnt = dim_cnt * dim_cnt;
+        auto lu       = LU(coefficient, dim_cnt),
+             e        = init_identity<matrix_elem_t>(dim_cnt),
+             l        = copy(e, elem_cnt),
+             u        = copy(e, elem_cnt),
+             y        = init<matrix_elem_t>(dim_cnt),
+             ans      = init<matrix_elem_t>(dim_cnt);
+        for (auto i = 0ull; i < dim_cnt; ++i) for (auto j = 0ull; j < dim_cnt; ++j)
+            if (i <= j) *(u + elem_pos(i, j, dim_cnt)) = *(lu + elem_pos(i, j, dim_cnt));
+            else *(l + elem_pos(i, j, dim_cnt)) = *(lu + elem_pos(i, j, dim_cnt));
+        for (auto i = 0ull; i < dim_cnt; ++i) if (i) {
+            matrix_elem_t temp = 0;
+            for (auto j = 0ull; j < i; ++j) temp += *(y + j) * (*(l + elem_pos(i, j, dim_cnt)));
+            *(y + i) = *(b + i) - temp;
+        } else *(y + i) = *(b + i);
+        for (auto i = dim_cnt; i > 0; --i) if (i - dim_cnt) {
+            matrix_elem_t temp = 0;
+            for (auto n= i - 1; n < dim_cnt - 1; ++n) temp += *(u + elem_pos(i - 1, n + 1, dim_cnt)) * (*(ans  + n + 1));
+            *(ans + i - 1) = (*(y + i - 1) - temp) / (*(u + elem_pos(i - 1, i - 1, dim_cnt)));
+        } else *(ans + dim_cnt - 1) = *(y + dim_cnt - 1) / (*(u + elem_pos(dim_cnt - 1, dim_cnt - 1, dim_cnt)));
+        recycle(lu, e, l, u, y);
+        return ans;
+    } else return nullptr;
+}
+
+callback_matrix matrix_ptr jacobi_iter(const matrix_ptr coefficient, const matrix_ptr b, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-5) {
+    if (coefficient && b && dim_cnt && init_elem > 0) {
+        auto temp = init<matrix_elem_t>(dim_cnt),
+             ans  = init<matrix_elem_t>(dim_cnt);
+        fill(temp, dim_cnt, init_elem);
         bool flag = false;
-        do
-        {
+        do {
+            ans = copy(temp, dim_cnt);
+            for (auto i = 0ull; i < dim_cnt; ++i) {
+                matrix_elem_t sum = 0;
+                for (auto j = 0ull; j < dim_cnt; ++j) if (i != j) sum += *(coefficient + elem_pos(i, j, dim_cnt)) * (*(ans + j));
+                *(temp + i) = (*(b + i) - sum) / (*(coefficient + elem_pos(i, i, dim_cnt)));
+            }
+            for (auto i = 0ull; i < dim_cnt; ++i) {
+                auto acc_dist = *(ans + i) - (*(temp + i));
+                if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) acc_dist = acc_dist.absolute;
+                else acc_dist = std::abs(acc_dist);
+                if (acc_dist >= acc) {
+                    flag = true;
+                    break;
+                }
+            }
             flag = false;
-            for (int i=0; i<dms; ++i) ans[i] = temp[i];
-            for (int i=0; i<dms; ++i)
-            {
-                __mtx_elem sum = 0.0;
-                for (int j=0; j<dms; ++j) if (i != j) sum += coefficient[mtx_elem_pos(i, j, dms)] * ans[j];
-                temp[i] = (b[i] - sum) / coefficient[mtx_elem_pos(i, i, dms)];
-            }
-            for (int i=0; i<dms; ++i) if (std::abs(ans[i] - temp[i]) >= acc)
-            {
-                flag = true;
-                break;
-            }
         } while (flag);
-        MTX_RESET(temp);
-        return true;
-    }
-    else return false;
+        ptr_reset(temp);
+    } else return nullptr;
 }
 
-__mtx_callback bool mtx_rotate_rect(__mtx &ans, __mtx &src, int ln_cnt, int col_cnt, bool clock_wise)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        for(auto i=0; i<ln_cnt; ++i) for(auto j=0; j<col_cnt; ++j)
-            if(clock_wise)  ans[mtx_elem_pos(j, ln_cnt-i-1, ln_cnt)] = src[mtx_elem_pos(i, j, col_cnt)];
-            else ans[mtx_elem_pos(col_cnt-j-1, i, ln_cnt)] = src[mtx_elem_pos(i, j, col_cnt)];
-        return true;
-    }
-    else return false;
-}
-__mtx_callback bool mtx_mirror_flip(__mtx &ans, __mtx &src, uint64_t ln_cnt, uint64_t col_cnt, bool symmetry_vertical)
-{
-    if(ans && src && ln_cnt && col_cnt)
-    {
-        
-        for(auto i=0; i<ln_cnt; ++i) for(int j=0; j<col_cnt; ++j) if(symmetry_vertical)
-        {
-            auto src_pos = col_cnt-1-j;
-            ans[mtx_elem_pos(i, j, col_cnt)] = src[mtx_elem_pos(i, src_pos, col_cnt)];
-        }
-        else
-        {
-            auto src_pos = ln_cnt-1-i;
-            ans[mtx_elem_pos(i, j, col_cnt)] = src[mtx_elem_pos(src_pos, j, col_cnt)];
-        }
-        return true;
-    }
-    else return false;
+callback_matrix matrix_ptr rotate_rect(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, bool clockwise = true) {
+    if (src && ln_cnt && col_cnt) {
+        auto ans = init<matrix_elem_t>(ln_cnt * col_cnt);
+        for (auto i = 0ull; i < ln_cnt; ++i) for (auto j = 0ull; j < col_cnt; ++j)
+            if(clockwise) *(ans + elem_pos(j, ln_cnt - i - 1, ln_cnt)) = *(src + elem_pos(i, j, col_cnt));
+            else *(ans + elem_pos(col_cnt - j - 1, i, ln_cnt)) = *(src + elem_pos(i, j, col_cnt));
+        return ans;
+    } else return nullptr;
 }
 
-MTX_END
+callback_matrix matrix_ptr mirror_flip(const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, bool symmetry_vertical = true) {
+    if (src && ln_cnt && col_cnt) {
+        auto ans = init<matrix_elem_t>(ln_cnt * col_cnt);
+        for(auto i = 0ull; i < ln_cnt; ++i) for (auto j = 0ull; j < col_cnt; ++j) {
+            auto          src_pos   = col_cnt;
+            matrix_elem_t curr_elem = 0;
+            if(symmetry_vertical) {
+                src_pos   = col_cnt - 1 - j;
+                curr_elem = *(src + elem_pos(i, src_pos, col_cnt));
+            } else {
+                src_pos   = ln_cnt - 1 - i;
+                curr_elem = *(src + elem_pos(src_pos, j, col_cnt));
+            }
+            *(ans + elem_pos(i, j, col_cnt)) = std::move(curr_elem);
+        }
+        return ans;
+    } else return nullptr;
+}
+
+MATRIX_END

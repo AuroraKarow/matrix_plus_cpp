@@ -1,0 +1,9 @@
+#pragma once
+
+#ifndef __NET_SEQUENCE__
+#define __NET_SEQUENCE__
+
+#include "net_set"
+#include "net_sequence.hpp"
+
+#endif

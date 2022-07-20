@@ -6,7 +6,7 @@
 using std::cout;
 using std::endl;
 
-using mtx::vect;
+using neunet::matrix::vect;
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -27,7 +27,7 @@ int main(int argc, char *argv[], char *envp[])
          h = {{0, 1, 2}};
     vect i = {{a, {{b, {{c},
                         {d}}},
-                    {e,  f}}},
+                   {e,   f}}},
               {g,        h}};
     cout << i << endl;
     return EXIT_SUCCESS;

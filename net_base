@@ -1,0 +1,29 @@
+#pragma once
+#ifndef __LIB_BASE__
+#define __LIB_BASE__
+
+#include <chrono>
+#include <random>
+#include <string>
+#include <functional>
+#include <assert.h>
+
+#define NEUNET_BEGIN    namespace neunet {
+#define NEUNET_END      }
+
+#define callback_arg    template<typename arg>
+#define callback_args   template<typename arg, typename ... args>
+
+#define ch_str          char *
+#define wch_str         wchar_t *
+#define ll_ptr          long long *
+#define ul_ptr          unsigned long long *
+#define lf_ptr          long double *
+
+#define number_arg      = std::enable_if_t<std::is_floating_point_v<arg> || std::is_integral_v<arg>>
+
+std::default_random_engine lib_rand_e;
+
+#include "net_base.hpp"
+
+#endif

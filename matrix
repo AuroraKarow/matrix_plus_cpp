@@ -1,39 +1,46 @@
 #pragma once
-#include "bagrt"
 
-// namespace
+#ifndef __MATRIX__
+#define __MATRIX__
 
-#define MTX_BEGIN                   namespace mtx {
-#define MTX_END                     }
+#include "net_decimal"
 
-#define _MTX                        mtx::
+#define MATRIX_BEGIN        namespace neunet { namespace matrix {
+#define MATRIX_END          }}
 
-#define MTX_PTR(TYPE, SRC)          MEM_PTR(TYPE, SRC)
-#define MTX_ALLOC(TYPE, SRC, LEN)   MEM_ALLOC(TYPE, SRC, LEN)
-#define MTX_INIT(TYPE, SRC, LEN)    MEM_INIT(TYPE, SRC, LEN)
-#define MTX_RESET(SRC)              MEM_RECYCLE(SRC)
+#define MATRIX_ELEM_MULT    0x0000
+#define MATRIX_ELEM_DIV     0x0001
+#define MATRIX_ELEM_POW     0x0002
 
-#define MTX_ELEM_MULT               0
-#define MTX_ELEM_DIV                1
-#define MTX_ELEM_POW                2
+#define matrix_elem_t       arg
+#define matrix_elem_t_v     std::is_same_v<matrix_elem_t, neunet::net_decimal> ||\
+                            std::is_floating_point_v<matrix_elem_t>
+#define matrix_ptr          matrix_elem_t *
 
-#define __mtx_elem                  arg
-#define __mtx                       __mtx_elem*
-#define __mtx_elem_v                = std::enable_if_t<std::is_same<__mtx_elem, bagrt::decimal>::value ||\
-                                                        std::is_floating_point<__mtx_elem>::value ||\
-                                                        std::is_integral<__mtx_elem>::value>
-#define __mtx_elem_v_               _Ty
-#define __mtx_callback              template<typename __mtx_elem>
-#define __mtx_callback_             template<typename __mtx_elem, typename __mtx_elem_v_>
-#define __mtx_t                     matrix<__mtx_elem, __mtx_elem_v_>
-#define __mtx_callback_t            typename __mtx_t::
+#define matrices_ptr        args *
 
-#include "matrix_base.h"
-#include "matrix.h"
+#define matrix_elem_v       = std::enable_if_t<matrix_elem_t_v>
+#define matrix_elem_vn      = std::enable_if_t<matrix_elem_t_v || std::is_integral_v<matrix_elem_t>>
 
-MTX_BEGIN
+#define callback_matrix     template<typename matrix_elem_t, typename matrix_elem_v>
+#define callback_matrix_n   template<typename matrix_elem_t, typename matrix_elem_vn>
 
-typedef matrix<long double>         vect;
-typedef matrix<bagrt::decimal>      vect_dec;
+#define callback_matrices   template<typename ... args>
 
-MTX_END
+#include "matrix_base.hpp"
+
+#define matrix_elem_para    i_arg
+#define matrix_elem_para_v  = std::enable_if_t<std::is_same_v<i_arg, net_decimal> ||\
+                            std::is_floating_point_v<i_arg> ||\
+                            std::is_integral_v<i_arg>>
+
+#include "matrix.hpp"
+
+MATRIX_BEGIN
+
+typedef net_matrix<long double> vect;
+typedef net_matrix<net_decimal> vect_dec;
+
+MATRIX_END
+
+#endif
