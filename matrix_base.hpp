@@ -59,7 +59,7 @@ callback_matrix matrix_ptr init_identity(uint64_t dim_cnt) {
     return ans;
 }
 
-callback_matrix matrix_ptr init_rand(uint64_t elem_cnt, const matrix_elem_t &fst_rng = 0, const matrix_elem_t &snd_rng = 0, uint64_t acc = 5) {
+callback_matrix matrix_ptr init_rand(uint64_t elem_cnt, const matrix_elem_t &fst_rng = 0, const matrix_elem_t &snd_rng = 0, uint64_t acc = 8) {
     if (elem_cnt == 0) return nullptr;
     auto ans = init<matrix_elem_t>(elem_cnt);
     for (auto i = 0ull; i < elem_cnt; ++i)
@@ -135,8 +135,8 @@ callback_matrix matrix_ptr crop(uint64_t &crop_ln_cnt, uint64_t &crop_col_cnt, c
     if (src && ln_cnt && col_cnt && !(crop_ln_cnt == ln_cnt && crop_col_cnt == col_cnt)) {
         auto ans = init<matrix_elem_t>(crop_ln_cnt * crop_col_cnt);
         for (auto i = 0ull; i < crop_ln_cnt; ++i) for (auto j = 0ull; j < crop_col_cnt; ++j) {
-            auto curr_res_no    = elem_pos(i, j, crop_col_cnt),
-                 curr_origin_no = elem_pos(top + i * (ln_dist + 1), left + j * (col_dist + 1), col_cnt);
+            auto curr_res_no     = elem_pos(i, j, crop_col_cnt),
+                 curr_origin_no  = elem_pos(top + i * (ln_dist + 1), left + j * (col_dist + 1), col_cnt);
             *(ans + curr_res_no) = *(src + curr_origin_no);
         }
         return ans;
@@ -219,7 +219,7 @@ callback_matrix matrix_ptr mult(const matrix_ptr val, uint64_t elem_cnt, const m
     return ans;
 }
 
-callback_matrix matrix_ptr elem_operate(const matrix_ptr val, uint64_t elem_cnt, const matrix_elem_t &para, uint64_t operation, bool para_fst = false, long double epsilon = 1e-5) {
+callback_matrix matrix_ptr elem_operate(const matrix_ptr val, uint64_t elem_cnt, const matrix_elem_t &para, uint64_t operation, bool para_fst = false, long double epsilon = 1e-8) {
     matrix_ptr ans = nullptr;
     if (val && elem_cnt) {
         ans = init<matrix_elem_t>(elem_cnt);
@@ -233,8 +233,7 @@ callback_matrix matrix_ptr elem_operate(const matrix_ptr val, uint64_t elem_cnt,
                 *(ans + i) = elem / curr_val;
                 break;
             case MATRIX_ELEM_POW:
-                if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = net_decimal::dec_pow(elem, curr_val);
-                else *(ans + i) = std::pow(elem, curr_val);
+                *(ans + i) = std::pow(elem, curr_val);
                 break;
             default: recycle(ans); break;
             }
@@ -243,7 +242,7 @@ callback_matrix matrix_ptr elem_operate(const matrix_ptr val, uint64_t elem_cnt,
     }
     return ans;
 }
-callback_matrix matrix_ptr elem_operate(const matrix_ptr fst, const matrix_ptr snd, uint64_t elem_cnt, uint64_t operation, bool elem_swap = false, long double epsilon = 1e-5) {
+callback_matrix matrix_ptr elem_operate(const matrix_ptr fst, const matrix_ptr snd, uint64_t elem_cnt, uint64_t operation, bool elem_swap = false, long double epsilon = 1e-8) {
     matrix_ptr ans = nullptr;
     if (fst && snd && elem_cnt) {
         ans = init<matrix_elem_t>(elem_cnt);
@@ -414,7 +413,7 @@ callback_matrix matrix_ptr inverser(const matrix_ptr src, uint64_t dim_cnt) {
     } else return nullptr;
 }
 
-callback_matrix auto max_eigen(const matrix_ptr src, matrix_ptr &w, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-5) {
+callback_matrix auto max_eigen(const matrix_ptr src, matrix_ptr &w, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-8) {
     if (src && dim_cnt) {
         matrix_elem_t lambda      = 0,
                       lambda_temp = 0,
@@ -491,7 +490,7 @@ callback_matrix matrix_ptr linear_equation(const matrix_ptr coefficient, const m
     } else return nullptr;
 }
 
-callback_matrix matrix_ptr jacobi_iter(const matrix_ptr coefficient, const matrix_ptr b, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-5) {
+callback_matrix matrix_ptr jacobi_iter(const matrix_ptr coefficient, const matrix_ptr b, uint64_t dim_cnt, const matrix_elem_t &init_elem = 1, long double acc = 1e-8) {
     if (coefficient && b && dim_cnt && init_elem > 0) {
         auto temp = init<matrix_elem_t>(dim_cnt),
              ans  = init<matrix_elem_t>(dim_cnt);

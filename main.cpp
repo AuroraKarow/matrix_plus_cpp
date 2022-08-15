@@ -1,4 +1,4 @@
-// This is a c++ 17 standard file.
+// This is a c++ 20 standard file.
 
 #include <iostream>
 #include "matrix"
@@ -6,7 +6,8 @@
 using std::cout;
 using std::endl;
 
-using neunet::matrix::vect;
+using neunet::vect;
+using neunet::net_sequence;
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -24,11 +25,15 @@ int main(int argc, char *argv[], char *envp[])
           e = {{0, 1, 2, 3}},
           f = {{0}},
           g = {{0, 1, 2}},
-          h = {{0, 1, 2}};
-     vect i = {{a, {{b, {{c},
+          h = {{0, 1, 2}},
+          i = {{a, {{b, {{c},
                          {d}}},
                     {e,   f}}},
                {g,        h}};
-     cout << i << endl;
+     net_sequence<vect> seq = {a, b, c, d, e, f, g, h, i};
+     for (auto temp : seq) {
+          cout << temp << '\n';
+          cout << endl;
+     }
      return EXIT_SUCCESS;
 }

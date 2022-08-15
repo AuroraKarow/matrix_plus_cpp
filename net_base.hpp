@@ -78,7 +78,7 @@ callback_arg void ptr_print(const arg *src, uint64_t len, bool enter = true) {
 }
 
 callback_arg void ptr_move(arg *&dest, arg *&&src) {
-    if (dest) ptr_reset(dest);
+    ptr_reset(dest);
     dest = std::move(src);
     src  = nullptr;
 }
@@ -520,6 +520,24 @@ wch_str str_charset_exchange(const ch_str src)
     auto ans     = ptr_init<wchar_t>(len + 1);
     mbstowcs_s(&buf_len, ans, len + 1, src, len);
     *(ans + len) = L'\0';
+    return ans;
+}
+
+ch_str str_cat(const ch_str fst, const ch_str snd) {
+    auto fst_len = std::strlen(fst),
+         snd_len = std::strlen(snd),
+         ans_len = fst_len + snd_len;
+    auto ans     = ptr_init<char>(ans_len + 1);
+    auto p_tool = ans;
+    for (auto i = 0ull; i < fst_len; ++i) *(ans + i) = *(fst + i);
+    for (auto i = 0ull; i < snd_len; ++i) *(ans + i + fst_len) = *(snd + i);
+    ans[ans_len] = '\0';
+    return ans;    
+}
+template <typename ... arg> ch_str str_cat(const ch_str fst, const ch_str snd, arg &&... src) {
+    auto curr_ans = str_cat(fst, snd);
+    auto ans      = str_cat(curr_ans, src ...);
+    ptr_reset(curr_ans);
     return ans;
 }
 

@@ -34,13 +34,15 @@
                             std::is_floating_point_v<i_arg> ||\
                             std::is_integral_v<i_arg>>
 
+#define matrix_declare      callback_matrix
+
 #include "matrix.hpp"
 
-MATRIX_BEGIN
+NEUNET_BEGIN
 
-typedef net_matrix<long double> vect;
-typedef net_matrix<net_decimal> vect_dec;
+typedef matrix::net_matrix<long double> vect;
+typedef matrix::net_matrix<net_decimal> vect_dec;
 
-MATRIX_END
+NEUNET_END
 
 #endif

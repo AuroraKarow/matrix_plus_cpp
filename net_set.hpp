@@ -24,8 +24,7 @@ protected:
     /* net_set iterator */
     struct iterator final : net_iterator_base<arg, net_set<arg>> {
     public:
-        iterator(const net_set *src = nullptr, uint64_t idx = 0) :
-            net_iterator_base<arg, net_set<arg>>(src),
+        iterator(const net_set *src = nullptr, uint64_t idx = 0) : net_iterator_base<arg, net_set<arg>>(src),
             curr_idx(idx) {}
 
         virtual bool operator==(const iterator &val) const { return curr_idx == val.curr_idx && net_iterator_base<arg, net_set<arg>>::operator==(val); }
@@ -62,8 +61,9 @@ protected:
     private: uint64_t curr_idx = 0;
     };
     void value_copy(const net_set &src) {
+        ptr_alter(ptr, len, src.len, false);
+        ptr_copy(ptr, src.ptr, src.len);
         len = src.len;
-        ptr = ptr_copy(src.ptr, src.len);
     }
     
     void value_move(net_set &&src) {
@@ -178,8 +178,8 @@ public:
     }
 
     arg sigma() const {
-        arg ans{};
-        for (auto i = 0ull; i < len; ++i) ans += *(ptr + i);
+        arg ans = *ptr;
+        for (auto temp = ++begin(); temp != end(); ++temp) ans += (*temp);
         return ans;
     }
     arg sigma(uint64_t fst_rng, uint64_t snd_rng) const { return sub_set(fst_rng, snd_rng).sigma(); }
@@ -188,7 +188,7 @@ public:
     arg pi() const {
         
         arg ans = *ptr;
-        for (auto i = 1ull; i < len; ++i) ans *= *(ptr + i);
+        for (auto temp = ++begin(); temp != end(); ++temp) ans *= (*temp);
         return ans;
     }
     arg pi(uint64_t fst_rng, uint64_t snd_rng) const { return sub_set(fst_rng, snd_rng).pi(); }

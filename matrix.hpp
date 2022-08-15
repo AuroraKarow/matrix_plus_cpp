@@ -1,6 +1,6 @@
 MATRIX_BEGIN
 
-template<typename matrix_elem_t, typename matrix_elem_v> struct net_strassen_matrix final {
+matrix_declare struct net_strassen_matrix final {
     uint64_t ln_cnt       = 0,
              ln_cnt_orgn  = 0,
              col_cnt      = 0,
@@ -156,7 +156,7 @@ callback_matrix matrix_ptr strassen_mult(const matrix_ptr left, uint64_t left_ln
     return ans_ptr;
 }
 
-template<typename matrix_elem_t, typename matrix_elem_v> class net_matrix {
+matrix_declare class net_matrix {
 protected:
     void value_assign(const net_matrix &src) {
         ln_cnt   = src.ln_cnt;
@@ -281,7 +281,7 @@ public:
         else fill<matrix_elem_t>(ptr, elem_cnt, src);
     }
 
-    net_set<pos> extremum_position(bool get_max, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate, uint64_t col_dilate) const {
+    net_set<pos> extremum_position(bool get_max, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) const {
         net_set<pos> ans;
         extremum(ans, get_max, ptr, ln_cnt, col_cnt, from_ln, to_ln, from_col, to_col, ln_dilate, col_dilate);
         return ans;
@@ -322,11 +322,11 @@ public:
     }
     matrix_elem_t elem_sum(uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate, uint64_t col_dilate) const { return child(from_ln, to_ln, from_col, to_col, ln_dilate, col_dilate).elem_sum(); }
 
-    net_matrix elem_wise_opt(const net_matrix &val, uint64_t operation, bool elem_swap = false, long double epsilon = 1e-5) const {
-        if (shape_verify(val)) return net_matrix(elem_operate(ptr, val, elem_cnt, operation, elem_swap, epsilon), ln_cnt, col_cnt);
+    net_matrix elem_wise_opt(const net_matrix &val, uint64_t operation, bool elem_swap = false, long double epsilon = 1e-8) const {
+        if (shape_verify(val)) return net_matrix(elem_operate(ptr, val.ptr, elem_cnt, operation, elem_swap, epsilon), ln_cnt, col_cnt);
         else return net_matrix();
     }
-    template<typename matrix_elem_para, typename matrix_elem_para_v> net_matrix elem_wise_opt(const matrix_elem_para &para, uint64_t operation, bool para_fst = false, long double epsilon = 1e-5) const {
+    template<typename matrix_elem_para, typename matrix_elem_para_v> net_matrix elem_wise_opt(const matrix_elem_para &para, uint64_t operation, bool para_fst = false, long double epsilon = 1e-8) const {
         if constexpr (std::is_same_v<matrix_elem_para, net_decimal> && !std::is_same_v<matrix_elem_t, net_decimal>) return net_matrix(elem_operate(ptr, elem_cnt, para.number_format, operation, para_fst, epsilon), ln_cnt, col_cnt);
         else return net_matrix(elem_operate<matrix_elem_t>(ptr, elem_cnt, para, operation, para_fst, epsilon), ln_cnt, col_cnt);
     }
@@ -427,6 +427,8 @@ public:
         }
     }
 
+    static net_matrix identity(uint64_t dim_cnt) { return net_matrix(init_identity<matrix_elem_t>(dim_cnt), dim_cnt, dim_cnt); }
+
     __declspec(property(get=__ln_cnt__))       uint64_t      line_count;
     __declspec(property(get=__col_cnt__))      uint64_t      column_count;
     __declspec(property(get=__elem_cnt__))     uint64_t      element_count;
@@ -471,7 +473,7 @@ public:
             if (col_cnt != src.ln_cnt) return net_matrix(*this);
             ans.ptr      = mult(ptr, ln_cnt, col_cnt, src.ptr, src.col_cnt);
             ans.col_cnt  = src.col_cnt;
-            ans.elem_cnt = ans.ln_cnt * ans.col_cnt;
+            ans.elem_cnt = ln_cnt * ans.col_cnt;
         }
         ans.ln_cnt = ln_cnt;
         return ans;
@@ -514,6 +516,7 @@ public:
         }
         return out;
     }
+
 };
 
 MATRIX_END

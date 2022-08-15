@@ -8,12 +8,16 @@
             "label": "cl.exe build active file",
             "command": "cl.exe",
             "args": [
-                "/std:c++17",
+                "/std:c++20",
                 "/Zi",
                 "/EHsc",
                 "/Fe:",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
-                "${file}"
+                "${fileDirname}\\.vscode\\debug\\bin\\${fileBasenameNoExtension}.exe",
+                "${file}",
+                "/Fd:",
+                "${fileDirname}\\.vscode\\debug\\bin\\vc140.pdb",
+                "/Fo:",
+                "${fileDirname}\\.vscode\\debug\\obj\\${fileBasenameNoExtension}.obj"
             ],
             "problemMatcher": ["$msCompile"],
             "group": {

@@ -2,26 +2,19 @@ NEUNET_BEGIN
 
 template <typename arg> class net_sequence : public net_set<arg> {
 public:
-    net_sequence(uint64_t init_size = 0, uint64_t alloc_size = 128) :
-        net_set<arg>(alloc_size),
+    net_sequence(uint64_t init_size = 0, uint64_t alloc_size = 128) : net_set<arg>(alloc_size),
         mem_len(alloc_size) { if (init_size != this->len) this->len = init_size; }
-    net_sequence(std::initializer_list<arg> init_list) :
-        net_set<arg>(init_list),
+    net_sequence(std::initializer_list<arg> init_list) : net_set<arg>(init_list),
         mem_len(init_list.size()) {}
-    net_sequence(net_ptr_base<arg> &&src) :
-        net_set<arg>(std::move(src)) { mem_len = this->len; }
-    net_sequence(const net_sequence &src) :
-        net_set<arg>(src),
+    net_sequence(net_ptr_base<arg> &&src) : net_set<arg>(std::move(src)) { mem_len = this->len; }
+    net_sequence(const net_sequence &src) : net_set<arg>(src),
         mem_len(src.mem_len) { if(mem_len != this->len) ptr_alter(this->ptr, this->len, mem_len); }
-    net_sequence(net_sequence &&src) :
-        net_set<arg>(std::move(src)),
+    net_sequence(net_sequence &&src) : net_set<arg>(std::move(src)),
         mem_len(src.mem_len) { src.reset(); }
     // parent
-    net_sequence(const net_set<arg> &src) :
-        net_set<arg>(src),
+    net_sequence(const net_set<arg> &src) : net_set<arg>(src),
         mem_len(src.length) {}
-    net_sequence(net_set<arg> &&src) :
-        net_set<arg>(std::move(src)) { mem_len = this->len; }
+    net_sequence(net_set<arg> &&src) : net_set<arg>(std::move(src)) { mem_len = this->len; }
     
     void init(uint64_t init_size, uint64_t alloc_size = 128, bool remain = true) {
         while (init_size > alloc_size) alloc_size <<= 1;

@@ -18,7 +18,7 @@
 
 #include "net_decimal.hpp"
 
-neunet::net_decimal operator ""_dec(long double src) { return neunet::net_decimal(src); }
-neunet::net_decimal operator ""_dec(uint64_t src) { return neunet::net_decimal(src); }
+neunet::net_decimal operator "" _dec(long double src) { return neunet::net_decimal(src); }
+neunet::net_decimal operator "" _dec(uint64_t src) { return neunet::net_decimal(src); }
 
 #endif

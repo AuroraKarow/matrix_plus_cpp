@@ -893,6 +893,8 @@ public:
         return out;
     }
 
+    explicit operator long double () const { return to_num(); }
+
     std::string __to_str__() const {
         auto temp = to_str();
         std::string ans = temp;
@@ -1045,3 +1047,11 @@ net_decimal net_decimal::net_dec_pi_cnt      = 0,
             net_decimal::net_dec_con         = 0;
 
 NEUNET_END
+
+_STD_BEGIN
+
+neunet::net_decimal pow(const neunet::net_decimal &_Xx, const neunet::net_decimal &_Yx) { return neunet::net_decimal::dec_pow(_Xx, _Yx); }
+
+neunet::net_decimal exp(const neunet::net_decimal &_Xx) { return neunet::net_decimal::dec_exp(_Xx); }
+
+_STD_END
