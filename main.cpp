@@ -9,8 +9,7 @@ using std::endl;
 using neunet::vect;
 using neunet::net_sequence;
 
-int main(int argc, char *argv[], char *envp[])
-{
+int main(int argc, char *argv[], char *envp[]) {
      cout << "hello, world." << endl;
      vect a = {{0},
                {1},
