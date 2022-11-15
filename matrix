@@ -4,6 +4,7 @@
 #define __MATRIX__
 
 #include "net_decimal"
+#include "async"
 
 #define MATRIX_BEGIN        namespace neunet { namespace matrix {
 #define MATRIX_END          }}
@@ -11,6 +12,16 @@
 #define MATRIX_ELEM_MULT    0x0000
 #define MATRIX_ELEM_DIV     0x0001
 #define MATRIX_ELEM_POW     0x0002
+
+#define MATRIX_REGSIZE      0x0004
+
+#ifndef MATRIX_UNROLL
+#define MATRIX_UNROLL       MATRIX_REGSIZE
+#endif
+
+#ifndef MATRIX_BLOCKSIZE
+#define MATRIX_BLOCKSIZE 32
+#endif
 
 #define matrix_elem_t       arg
 #define matrix_elem_t_v     std::is_same_v<matrix_elem_t, neunet::net_decimal> ||\

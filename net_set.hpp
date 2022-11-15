@@ -1,26 +1,8 @@
 NEUNET_BEGIN
 
-/* iterator */
-template <typename arg, typename inst_t> struct net_iterator_base {
-public:
-    net_iterator_base(const inst_t *ptr_src = nullptr) : ptr(ptr_src) {}
-
-    virtual bool operator==(const net_iterator_base &val) const { return ptr == val.ptr;}
-
-    virtual arg operator*() const = 0;
-
-    virtual net_iterator_base &operator++() { return *this; }
-
-    virtual net_iterator_base &operator--() { return *this; }
-
-    virtual ~net_iterator_base() { ptr = nullptr; }
-protected:
-    const inst_t *ptr = nullptr;
-};
-
 /* net_set */
 template <typename arg> class net_set {
-protected:
+public:
     /* net_set iterator */
     struct iterator final : net_iterator_base<arg, net_set<arg>> {
     public:
@@ -60,6 +42,8 @@ protected:
         ~iterator() { curr_idx = 0; }
     private: uint64_t curr_idx = 0;
     };
+
+protected:
     void value_copy(const net_set &src) {
         ptr_alter(ptr, len, src.len, false);
         ptr_copy(ptr, src.ptr, src.len);
@@ -178,17 +162,20 @@ public:
     }
 
     arg sigma() const {
-        arg ans = *ptr;
-        for (auto temp = ++begin(); temp != end(); ++temp) ans += (*temp);
+        arg ans {};
+        if (len) ans = *ptr;
+        else return ans;
+        for (auto i = 1ull; i < len; ++i) ans += (*(ptr + i));
         return ans;
     }
     arg sigma(uint64_t fst_rng, uint64_t snd_rng) const { return sub_set(fst_rng, snd_rng).sigma(); }
     arg sigma(const net_set<uint64_t> &idx_set) const { return sub_set(idx_set).sigma(); }
 
     arg pi() const {
-        
-        arg ans = *ptr;
-        for (auto temp = ++begin(); temp != end(); ++temp) ans *= (*temp);
+        arg ans {};
+        if (len) ans = *ptr;
+        else return ans;
+        for (auto i = 1ull; i < len; ++i) ans *= (*(ptr + i));
         return ans;
     }
     arg pi(uint64_t fst_rng, uint64_t snd_rng) const { return sub_set(fst_rng, snd_rng).pi(); }
@@ -214,7 +201,10 @@ public:
         return ptr_cut(ptr, prev_len, idx, successor);
     }
     
-    iterator begin() const { return iterator(this, 0); }
+    iterator begin() const {
+        if (len) return iterator(this, 0);
+        else return end();
+    }
     
     iterator end() const { return iterator(nullptr, 0); }
     
@@ -231,6 +221,13 @@ public:
     
     net_set &operator=(const net_set &src) { value_copy(src); return *this; }
     net_set &operator=(net_set &&src) { value_move(std::move(src)); return *this; }
+
+    template <typename seq> explicit operator seq () const {
+        seq ans;
+        ans.init(len);
+        for (auto i = 0ull; i < len; ++i) ans[i] = *(ptr + i);
+        return ans;
+    }
     
     virtual ~net_set() { reset(); }
 

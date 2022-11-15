@@ -143,22 +143,20 @@ callback_matrix matrix_ptr crop(uint64_t &crop_ln_cnt, uint64_t &crop_col_cnt, c
     } else return copy(src, ln_cnt * col_cnt);
 }
 
-callback_matrix matrix_elem_t extremum(net_set<pos> &elem_pos_set, bool get_max, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) {
+callback_matrix matrix_elem_t extremum(net_list<pos> &elem_pos_set, bool get_max, const matrix_ptr src, uint64_t ln_cnt, uint64_t col_cnt, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) {
     matrix_elem_t ans {};
     if(src && col_cnt && ln_cnt && from_ln >= 0 && to_ln >= from_ln && ln_cnt > to_ln && from_col >= 0 && to_col >= from_col && col_cnt > to_col) {
-        net_sequence<pos> elem_pos_seq;
+        elem_pos_set.reset();
         ans = *(src + elem_pos(from_ln, from_col, col_cnt));
         for (auto i = from_ln; i <= to_ln; ++(i += ln_dilate)) for (auto j = from_col; j <= to_col; ++(j += col_dilate)) {
             auto curr_no  = elem_pos(i, j, col_cnt);
             pos  curr_pos {i, j};
             if ((get_max && src[curr_no] > ans) || (!get_max && src[curr_no] < ans)) {
                 ans = *(src + curr_no);
-                elem_pos_seq.clear();
-                elem_pos_seq.emplace_back(curr_pos);
-            } else if (*(src + curr_no) == ans) elem_pos_seq.emplace_back(curr_pos);
+                elem_pos_set.reset();
+                elem_pos_set.emplace_back(curr_pos);
+            } else if (*(src + curr_no) == ans) elem_pos_set.emplace_back(curr_pos);
         }
-        elem_pos_seq.shrink();
-        elem_pos_set = std::move(elem_pos_seq);
     }
     return ans;
 }
@@ -199,13 +197,78 @@ callback_matrix matrix_ptr add(const matrix_ptr fst, const matrix_ptr snd, uint6
 
 /* ans_ln_cnt  = fst_ln_cnt
  * ans_col_cnt = snd_col_cnt
+ * cache blocking
+ */
+void mult_block_reg(double *&ans, const double *fst, uint64_t fst_ln_cnt, uint64_t fst_col_cnt, const double *snd, uint64_t snd_col_cnt, uint64_t fst_ln, uint64_t snd_col, uint64_t fst_col) {
+    auto fst_ln_blk  = fst_ln + MATRIX_BLOCKSIZE,
+         fst_col_blk = fst_col + MATRIX_BLOCKSIZE,
+         snd_col_blk = snd_col + MATRIX_BLOCKSIZE;
+    auto blk_flag = true;
+    if (fst_ln_blk > fst_ln_cnt) {
+        fst_ln_blk = fst_ln_cnt;
+        blk_flag   = false;
+    }
+    if (fst_col_blk > fst_col_cnt) {
+        fst_col_blk = fst_col_cnt;
+        blk_flag    = false;
+    }
+    if (snd_col_blk > snd_col_cnt) {
+        snd_col_blk = snd_col_cnt;
+        blk_flag    = false;
+    }
+	if (blk_flag) for (auto i = fst_ln; i < fst_ln_blk; ++i) for (auto j = snd_col; j < snd_col_blk; j += MATRIX_UNROLL * MATRIX_REGSIZE) {
+		__m256d ans_reg[MATRIX_UNROLL];
+		for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_load_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE);
+
+		for (auto k = fst_col; k < fst_col_blk; ++k) {
+			__m256d fst_reg = _mm256_broadcast_sd(fst + i * fst_col_cnt + k);
+			for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_add_pd(ans_reg[x], _mm256_mul_pd( fst_reg, _mm256_load_pd(snd + k * snd_col_cnt + j + x * MATRIX_REGSIZE)));
+		}
+
+		for (auto x = 0; x < MATRIX_UNROLL; ++x) _mm256_store_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE, ans_reg[x]);
+	} else for (auto i = fst_ln; i < fst_ln_blk; ++i) for (auto j = fst_col; j < fst_col_blk; ++j) {
+        auto coe = *(fst + i * fst_col_cnt + j);
+        for (auto k = snd_col; k < snd_col_blk; ++k) {
+            *(ans + i * snd_col_cnt + k) += coe * (*(snd + j * snd_col_cnt + k));
+        }
+    }
+}
+double *mult_reg(const double *fst, uint64_t fst_ln_cnt, uint64_t fst_col_cnt, const double *snd, uint64_t snd_col_cnt) {
+    if (fst && snd && fst_ln_cnt && fst_col_cnt && snd_col_cnt) {
+        auto ans = init<double>(fst_ln_cnt * snd_col_cnt);
+        for (auto i = 0ull; i < fst_ln_cnt; i += MATRIX_BLOCKSIZE) for (auto j = 0ull; j < snd_col_cnt; j += MATRIX_BLOCKSIZE) for (auto k = 0ull; k < fst_col_cnt; k += MATRIX_BLOCKSIZE) mult_block_reg(ans, fst, fst_ln_cnt, fst_col_cnt, snd, snd_col_cnt, i, j, k);
+        return ans;
+    }
+    return nullptr;
+}
+/* ans_ln_cnt  = fst_ln_cnt
+ * ans_col_cnt = snd_col_cnt
+ * array packing
  */
 callback_matrix matrix_ptr mult(const matrix_ptr fst, uint64_t fst_ln_cnt, uint64_t fst_col_cnt, const matrix_ptr snd, uint64_t snd_col_cnt) {
     if (fst && snd && fst_ln_cnt && fst_col_cnt && snd_col_cnt) {
-        auto ans = init<matrix_elem_t>(fst_ln_cnt * snd_col_cnt);
-        for (auto i = 0ull; i < fst_ln_cnt; ++i) for (auto j = 0ull; j < fst_col_cnt; ++j) {
+        auto ans_elem_cnt = fst_ln_cnt * snd_col_cnt;
+        if constexpr (std::is_same_v<matrix_elem_t, double>) return mult_reg(fst, fst_ln_cnt, fst_col_cnt, snd, snd_col_cnt);
+        if constexpr (std::is_same_v<matrix_elem_t, long double>) {
+            if constexpr (sizeof(double) == sizeof(long double)) return (long double *) mult_reg((double*)fst, fst_ln_cnt, fst_col_cnt, (double*)snd, snd_col_cnt);
+            else {
+                auto fst_temp = ptr_narr_float(fst, fst_ln_cnt * fst_col_cnt),
+                     snd_temp = ptr_narr_float(snd, fst_col_cnt * snd_col_cnt),
+                     ans_temp = mult_reg(fst_temp, fst_ln_cnt, fst_col_cnt, snd_temp, snd_col_cnt);
+                auto ans = init<matrix_elem_t>(ans_elem_cnt);
+                for (auto i = 0ull; i < ans_elem_cnt; ++i) *(ans + i) = (*(ans_temp + i));
+                ptr_reset(fst_temp, snd_temp, ans_temp);
+                return ans;
+            }
+        }
+        auto ans = init<matrix_elem_t>(ans_elem_cnt);
+        #if OMP_MATRIX_MODE
+        // openmp on/off
+        #pragma omp parallel for schedule(dynamic)
+        #endif
+        for (auto i = 0ll; i < fst_ln_cnt; ++i) for (auto j = 0ll; j < fst_col_cnt; ++j) {
             auto coe = *(fst + elem_pos(i, j, fst_col_cnt));
-            for (auto k = 0ull; k < snd_col_cnt; ++k) *(ans + elem_pos(i, k, snd_col_cnt)) += coe * (*(snd + elem_pos(j, k, snd_col_cnt)));
+            for (auto k = 0ll; k < snd_col_cnt; ++k) *(ans + elem_pos(i, k, snd_col_cnt)) += coe * (*(snd + elem_pos(j, k, snd_col_cnt)));
         }
         return ans;
     }

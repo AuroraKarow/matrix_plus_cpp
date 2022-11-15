@@ -1,4 +1,10 @@
 // This is a c++ 20 standard file.
+#pragma once
+
+#define MATRIX_UNROLL    4
+#define MATRIX_BLOCKSIZE 32
+
+#define OMP_MATRIX_MODE  false
 
 #include <iostream>
 #include "matrix"

@@ -1,44 +1,12 @@
 NEUNET_BEGIN
 
-/* Hash key */
-
-uint64_t hash_in_built(const std::string &src) {
-    auto ans = 0ull;
-    for(auto i = 0ull; i < src.length(); ++i) ans += (i + 1) * src[i];
-    return ans;
-}
-
-uint64_t hash_in_built(long double src) {
-    if (src) {
-        uint64_t ans = *(uint64_t*)(&src);
-        return ans;
-    } else return 0;
-}
-
-long long hash_detect(long long &threshold, bool &sgn) {
-    if (threshold) if (sgn) { 
-        auto temp = (-1) * threshold * threshold;
-              sgn = false;
-        ++ threshold;
-        return temp;
-    } else {
-        sgn = true;
-        return threshold * threshold;
-    } else {
-        auto temp = threshold;
-             sgn  = false;
-        ++ threshold;
-        return temp;
-    }
-}
-long long hash_next_key(long long hash_key, long long detect_v, long long curr_mem_len) { return (hash_key + detect_v) % curr_mem_len; }
-
 /* Pointer */
 
 callback_arg arg *ptr_init(uint64_t len) {
     if (len == 0) return nullptr;
     auto ans = new arg [len];
-    for (auto i = 0ull; i < len; ++i) *(ans + i) = arg();
+    if constexpr (std::is_copy_assignable_v<arg>) std::fill_n(ans, len, arg{});
+    else for (auto i = 0ull; i < len; ++i) *(ans + i) = arg{};
     return ans;
 }
 
@@ -259,6 +227,26 @@ callback_arg arg *ptr_intersect(uint64_t &ans_len, const arg *src_fst, uint64_t 
     return ans;
 }
 
+/** [Arrays common elements index]
+ * @brief Find common element in two arrays
+ * @param comm_cnt  [Out]   Common elements count
+ * @param axis      [In]    Axis array, at rest array for comparing.
+ * @param axis_len  [In]    Axis array length.
+ * @param src       [In]    Source array, find the index of common element comparing with the axis array.
+ * @param src_len   [In]    Source array length
+ * @return Boolean array. Length of this array equals to the source array. Each element value of this array which is the index of common element in axis array would be true, otherwise false.
+ */
+callback_arg bool *ptr_com_elem_idx(uint64_t &comm_cnt, const arg *axis, uint64_t axis_len, const arg *src, uint64_t src_len) {
+    auto ans = ptr_init<bool>(src_len);
+    comm_cnt = 0;
+    for (auto i = 0ull; i < axis_len; ++i) if (src_len != comm_cnt) for (auto j = 0ull; j < src_len; ++j) if (*(src + j) == *(axis + i) && !(*(ans + j))) {
+        *(ans + j) = true;
+        ++comm_cnt;
+        break;
+    }
+    return ans;
+}
+
 callback_arg bool ptr_cut(arg *&src, uint64_t src_len, uint64_t tgt_idx, bool successor = true) {
     if(src_len && tgt_idx < src_len && src) {
         if(successor) ptr_alter(src, src_len, tgt_idx);
@@ -290,6 +278,14 @@ callback_arg ul_ptr ptr_find(uint64_t &ans_len, const arg *src, uint64_t src_len
     return ans;
 }
 
+double *ptr_narr_float(long double *src, uint64_t len) {
+    if (!(len && src)) return nullptr;
+    auto ans = ptr_init<double>(len);
+    if constexpr (sizeof(double) == sizeof(long double)) std::copy(src, src + len, ans);
+    else for (auto i = 0ull; i < len; ++i) *(ans + i) = (*(src + i));
+    return ans;
+}
+
 /* Number */
 
 bool num_booleam(bool fst, bool snd, uint8_t boolean_type) {
@@ -303,17 +299,19 @@ bool num_booleam(bool fst, bool snd, uint8_t boolean_type) {
 }
 
 ul_ptr num_primes(uint64_t &len, uint64_t upper) {
-    auto ans = ptr_init<uint64_t>(upper);
-         len = 0;
-    *(ans + len++) = 2;
-    if (upper > 2) for (auto i = 3ull; i <= upper; ++i) {
-        auto cnt_temp = 0ull;
-        while (cnt_temp < len) 
-            if (i % (*(ans + cnt_temp)) == 0) break;
-            else ++cnt_temp;
-        if(cnt_temp == len) *(ans + len++) = i;
+    auto ans = ptr_init<uint64_t>(upper + 1);
+    auto pmf = ptr_init<bool>(upper + 1);
+    len = 0;
+    for (auto i = 2ull; i <= upper; ++i) {
+        if (!(*(pmf + i))) *(ans + len++) = i;
+        for (auto j = 0ull; j < len; ++j) {
+            if (i * (*(ans + j)) > upper) break;
+            *(pmf + (i * (*(ans + j)))) = true;
+            if (!(i % (*(ans + j)))) break;
+        }
     }
-    if(len != upper) ptr_alter(ans, upper, len);
+    ptr_alter(ans, upper, len);
+    ptr_reset(pmf);
     return ans;
 }
 
@@ -412,7 +410,7 @@ uint64_t num_bit_cnt(long long src) {
 }
 
 long double num_rand(long double fst_rng = 0, long double snd_rng = 0, uint64_t acc = 8) {
-    if (fst_rng == snd_rng) return (((long double)lib_rand_e() / (long double)lib_rand_e._Max) - 0.5) * 2.0;
+    if (fst_rng == snd_rng) return (((long double)lib_rand_e() / (long double)lib_rand_e._Max) - .5l) * 2.0l;
     else {
         // random seed
         auto curr_time = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
@@ -560,5 +558,50 @@ template <typename arg> struct net_ptr_base {
         ptr_reset(ptr_base);
     }
 };
+
+/* iterator */
+template <typename arg, typename inst_t> struct net_iterator_base {
+public:
+    net_iterator_base(const inst_t *ptr_src = nullptr) : ptr(ptr_src) {}
+
+    virtual bool operator==(const net_iterator_base &val) const { return ptr == val.ptr;}
+
+    virtual arg operator*() const = 0;
+
+    virtual net_iterator_base &operator++() { return *this; }
+
+    virtual net_iterator_base &operator--() { return *this; }
+
+    virtual ~net_iterator_base() { ptr = nullptr; }
+
+protected: const inst_t *ptr = nullptr;
+};
+
+/* Hash key */
+
+template <typename arg> uint64_t hash_in_built(const arg &src) {
+    if constexpr (std::is_same_v<arg, std::string>) return std::hash<std::string>{}(src);
+    else if constexpr (std::is_integral_v<arg>) return src;
+    else if constexpr (std::is_floating_point_v<arg>) return std::hash<arg>{}(src);
+    else return 0;
+}
+
+long long hash_detect(long long &threshold, bool &sgn) {
+    if (threshold) if (sgn) { 
+        auto temp = (-1) * threshold * threshold;
+              sgn = false;
+        ++ threshold;
+        return temp;
+    } else {
+        sgn = true;
+        return threshold * threshold;
+    } else {
+        auto temp = threshold;
+             sgn  = false;
+        ++ threshold;
+        return temp;
+    }
+}
+long long hash_next_key(long long hash_key, long long detect_v, long long curr_mem_len) { return (hash_key + detect_v) % curr_mem_len; }
 
 NEUNET_END

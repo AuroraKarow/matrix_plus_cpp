@@ -596,8 +596,7 @@ private:
         net_dec_pi      = net_dec_pi * net_decimal(2).dec_recip();
         net_dec_pi_acc  = calculate_accuracy;
         net_decimal ans = 0;
-        do
-        {
+        do {
             ++net_dec_pi_cnt;
             ans = net_dec_pi;
             net_dec_pi_frc *= net_dec_pi_cnt * (net_dec_pi_cnt * 2 + 1).dec_recip();
@@ -893,7 +892,13 @@ public:
         return out;
     }
 
-    explicit operator long double () const { return to_num(); }
+    template <typename exp_t> explicit operator exp_t () const {
+        static_assert(std::is_floating_point_v<exp_t> || std::is_integral_v<exp_t>);
+        if constexpr (std::is_integral_v<exp_t>) return __int_part__();
+        else return to_num();
+    }
+
+    // explicit operator long double () const { return to_num(); }
 
     std::string __to_str__() const {
         auto temp = to_str();
@@ -1053,5 +1058,11 @@ _STD_BEGIN
 neunet::net_decimal pow(const neunet::net_decimal &_Xx, const neunet::net_decimal &_Yx) { return neunet::net_decimal::dec_pow(_Xx, _Yx); }
 
 neunet::net_decimal exp(const neunet::net_decimal &_Xx) { return neunet::net_decimal::dec_exp(_Xx); }
+
+neunet::net_decimal log(const neunet::net_decimal &_Xx) { return neunet::net_decimal::dec_ln(_Xx); }
+
+neunet::net_decimal sin(const neunet::net_decimal &_Xx) { return neunet::net_decimal::dec_sin(_Xx); }
+
+neunet::net_decimal cos(const neunet::net_decimal &_Xx) { return neunet::net_decimal::dec_cos(_Xx); }
 
 _STD_END

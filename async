@@ -1,0 +1,18 @@
+#pragma once
+
+#ifndef __NET_ASYNC__
+#define __NET_ASYNC__
+
+#include <shared_mutex>
+#include <future>
+#include <omp.h>
+#include "net_list"
+
+#define NEUNET_ASYNC_CORE   std::thread::hardware_concurrency()
+
+#define ASYNC_BEGIN         namespace neunet { namespace async {
+#define ASYNC_END           } }
+
+#include "async.hpp"
+
+#endif

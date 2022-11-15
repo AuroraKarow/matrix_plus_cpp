@@ -281,12 +281,12 @@ public:
         else fill<matrix_elem_t>(ptr, elem_cnt, src);
     }
 
-    net_set<pos> extremum_position(bool get_max, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) const {
-        net_set<pos> ans;
+    net_list<pos> extremum_position(bool get_max, uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate = 0, uint64_t col_dilate = 0) const {
+        net_list<pos> ans;
         extremum(ans, get_max, ptr, ln_cnt, col_cnt, from_ln, to_ln, from_col, to_col, ln_dilate, col_dilate);
         return ans;
     }
-    net_set<pos> extremum_position(bool get_max = true) const { return extremum_position(get_max, 0, ln_cnt - 1, 0, col_cnt - 1); }
+    net_list<pos> extremum_position(bool get_max = true) const { return extremum_position(get_max, 0, ln_cnt - 1, 0, col_cnt - 1); }
 
     net_matrix child(uint64_t from_ln, uint64_t to_ln, uint64_t from_col, uint64_t to_col, uint64_t ln_dilate, uint64_t col_dilate) const {
         uint64_t ln_cnt_temp  = 0,
@@ -479,7 +479,7 @@ public:
         return ans;
     }
     template<typename matrix_elem_para, typename matrix_elem_para_v> friend net_matrix operator*(const matrix_elem_para &para, const net_matrix &src) { return src * net_matrix(para); }
-    void operator *=(const net_matrix &src) { *this = *this * src; }
+    void operator*=(const net_matrix &src) { *this = *this * src; }
 
     net_matrix &operator=(const net_matrix &src) {
         value_copy(src);
@@ -498,6 +498,11 @@ public:
         assert(ln < ln_cnt);
         return line_data(this, ln, col_cnt);
     }
+
+    // matrix_elem_t *operator[](uint64_t ln) const {
+    //     assert(ln < ln_cnt);
+    //     return ptr + ln * col_cnt;
+    // }
 
     bool operator==(const net_matrix &src) const {
         if (shape_verify(src)) {

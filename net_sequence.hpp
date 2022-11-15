@@ -11,10 +11,6 @@ public:
         mem_len(src.mem_len) { if(mem_len != this->len) ptr_alter(this->ptr, this->len, mem_len); }
     net_sequence(net_sequence &&src) : net_set<arg>(std::move(src)),
         mem_len(src.mem_len) { src.reset(); }
-    // parent
-    net_sequence(const net_set<arg> &src) : net_set<arg>(src),
-        mem_len(src.length) {}
-    net_sequence(net_set<arg> &&src) : net_set<arg>(std::move(src)) { mem_len = this->len; }
     
     void init(uint64_t init_size, uint64_t alloc_size = 128, bool remain = true) {
         while (init_size > alloc_size) alloc_size <<= 1;
@@ -30,6 +26,44 @@ public:
         mem_len = this->len;
     }
     net_ptr_base<arg> ptr_array() const { return net_set<arg>::ptr_array(); }
+
+    net_sequence unit(const net_sequence &src) const {
+        net_sequence ans(0, 0);
+        if (src.len && this->len) {
+            ans.init(src.len + this->len);
+            for (auto i = 0ull; i < this->len; ++i) *(ans.ptr + i) = *(this->ptr + i);
+            for (auto i = 0ull; i < src.len; ++i) *(ans.ptr + i + this->len) = *(src.ptr + i);
+        } else if (src.len) ans = src;
+        else if (this->len) ans = *this;
+        return ans;
+    }
+
+    net_sequence unit_union(const net_sequence &src) const {
+        net_sequence ans(0, 0);
+        if (src.len && this->len) {
+            auto cnt  = 0ull;
+            auto temp = ptr_com_elem_idx(cnt, this->ptr, this->len, src.ptr, src.len);
+            ans.init(this->len + src.len - cnt);
+            cnt = 0;
+            ptr_copy(ans.ptr, this->ptr, this->len);
+            for (auto i = 0ull; i < src.len; ++i) if (!*(temp + i)) *(ans.ptr + this->len + cnt++) = *(src.ptr + i);
+            ptr_reset(temp);
+        } else if (src.len) ans = src;
+        else if (this->len) ans = *this;
+        return ans;
+    }
+
+    net_sequence unit_intersect(const net_sequence &src) const {
+        if (src.len && this->len) {
+            auto cnt  = 0ull;
+            auto temp = ptr_com_elem_idx(cnt, this->ptr, this->len, src.ptr, src.len);
+            net_sequence ans(cnt);
+            cnt = 0;
+            for (auto i = 0ull; i < src.len; ++i) if (*(temp + i)) *(ans.ptr + cnt++) = *(src.ptr + i);
+            ptr_reset(temp);
+            return ans;
+        } else return net_sequence();
+    }
 
     template<typename ... args> bool insert(uint64_t idx, args &&...paras) {
         if (idx > this->len) return false;
@@ -86,17 +120,6 @@ public:
     net_sequence &operator=(net_sequence &&src) {
         net_set<arg>::operator=(std::move(src));
         mem_len = src.mem_len;
-        return *this;
-    }
-    // parent
-    net_sequence &operator=(const net_set<arg> &src) {
-        net_set<arg>::operator=(src);
-        mem_len = src.length;
-        return *this;
-    }
-    net_sequence &operator=(net_set<arg> &&src) {
-        net_set<arg>::operator=(std::move(src));
-        mem_len = src.length;
         return *this;
     }
     
