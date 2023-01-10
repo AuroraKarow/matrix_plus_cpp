@@ -167,6 +167,7 @@ public:
     }
     net_list sub_list(const net_set<uint64_t> &idx_set) const {
         auto ptr_temp = idx_set.pointer;
+        ptr_sort(ptr_temp.ptr_base, 0, ptr_temp.len - 1);
         ptr_dup_remove(ptr_temp.len, ptr_temp.ptr_base, ptr_temp.len);
         net_list ans;
         if (*(ptr_temp.ptr_base + ptr_temp.len - 1) < len) {
@@ -301,15 +302,16 @@ public:
         if (len < 2) return;
         net_node<arg> *p_tool      = tail,
                       *p_tool_prev = nullptr;
-        while (p_tool)
-        {
+        while (p_tool) {
             p_tool->next = p_tool->prev;
             p_tool->prev = p_tool_prev;
             p_tool_prev  = p_tool;
             p_tool       = p_tool->next;
         }
-        head = tail;
-        tail = p_tool_prev;
+        head        = tail;
+        tail        = p_tool_prev;
+        p_tool      = nullptr;
+        p_tool_prev = nullptr;
     }
 
     iterator begin() const {
@@ -347,16 +349,28 @@ public:
     }
 
     void set_input(const net_set<arg> &src) {
-        if (src.length == 0) return;
-        if (head == nullptr) head = new net_node<arg>;
-        net_node<arg> *temp = nullptr;
-        for (auto i = 0; i < src.length; ++i) {
-            if (temp == nullptr) temp = head;
-            else temp = temp->next;
-            temp->elem = src[i];
+        if (src.length == 0) {
+            reset();
+            return;
         }
-        tail = temp;
+        if (head == nullptr) head = new net_node<arg>;
+        head->elem = src[0];
+        auto tool = head;
+        for (auto i = 1ull; i < src.length; ++i) {
+            if (!tool->next) {
+                tool->next       = new net_node<arg>;
+                tool->next->prev = tool;
+            }
+            tool->next->elem = src[i];
+            tool             = tool->next;
+        }
         len  = src.length;
+        tail = tool;
+        while (tail->next) {
+            delete tail->next;
+            tail->next = nullptr;
+        }
+        tool = nullptr;
     }
 
     bool sort(bool asc = true) {
@@ -409,14 +423,23 @@ public:
 
     bool operator==(const net_list &val) const {
         if (val.len != len) return false;
-        auto temp     = head,
-             val_temp = val.head;
-        for (auto i = 0ull; i < len; ++i)
-            if (temp->elem == val_temp->elem) {
-                temp     = temp->next;
-                val_temp = val_temp->next;
-            } else return false;
-        return true;
+        auto tool     = *this,
+             val_tool = val;
+        tool.sort();
+        val_tool.sort();
+        auto temp     = tool.head,
+             val_temp = val_tool.head;
+        auto flag     = true;
+        for (auto i = 0ull; i < len; ++i) if (temp->elem == val_temp->elem) {
+            temp     = temp->next;
+            val_temp = val_temp->next;
+        } else {
+            flag = false;
+            break;
+        }
+        temp     = nullptr;
+        val_temp = nullptr;
+        return flag;
     }
 
     bool operator!=(const net_list &val) const { return !(*this == val); }
@@ -429,7 +452,9 @@ public:
 protected:
     net_node<arg> *head = nullptr,
                   *tail = head;
+
     uint64_t      len   = 0;
+
 public:
     __declspec(property(get = size))  uint64_t length;
     __declspec(property(get = sigma)) arg      sum;

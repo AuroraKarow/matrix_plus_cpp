@@ -10,7 +10,7 @@
             "args": [
                 // "/O2",
                 "/std:c++20",
-                "/openmp",
+                // "/openmp",
                 "/Zi",
                 "/EHsc",
                 "/Fe:",

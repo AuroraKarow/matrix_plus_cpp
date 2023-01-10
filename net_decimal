@@ -6,7 +6,7 @@
 #include <complex>
 #include "net_sequence"
 
-#define NEUNET_PI           std::acosl(-1)
+#define NEUNET_PI           3.1415926535897932
 
 #define NEUNET_EULER_MOD    0x000000003b800001
 #define NEUNET_EULER_MOD_G  0x0000000000000003

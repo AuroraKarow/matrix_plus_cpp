@@ -16,8 +16,7 @@ net_set<uint8_t> dec_polynomial_add(bool &ans_sgn, const net_set<uint8_t> &coe_a
              carry   += conj_a * coe_a[i] + conj_b * coe_b[i];
         auto curr_bit = carry % 10;
              carry   /= 10;
-        if(curr_bit < 0)
-        {
+        if(curr_bit < 0) {
             curr_bit = 10 + curr_bit;
             --carry;
         }
@@ -297,7 +296,7 @@ protected:
     static void dec_acc() {
         if (net_dec_con_acc == calculate_accuracy) return;
         net_dec_con_acc = calculate_accuracy;
-        auto acc = calculate_accuracy;
+        uint64_t acc = calculate_accuracy;
         std::string temp = "0.";
         while (--acc) temp.push_back('0');
         temp.push_back('1');
@@ -1022,13 +1021,13 @@ public:
     }
 
     // Float digit remain of calculation accuracy truncating
-    static uint64_t calculate_accuracy;
+    static std::atomic_uint64_t calculate_accuracy;
 
     // This may slow down the calculating speed
-    static bool high_precision_mode;
+    static std::atomic_bool high_precision_mode,
 
     // Switch on the mode for modulo operation from off status for remain mode
-    static bool modulo_mode;
+                            modulo_mode;
 
     __declspec(property(get = __ftp_dig_cnt__,
                         put = dec_truncate))    uint64_t    float_digit_count;
@@ -1041,15 +1040,16 @@ public:
     __declspec(property(get = dec_recip))       net_decimal reciprocal;
 };
 
-bool        net_decimal::modulo_mode         = false,
-            net_decimal::high_precision_mode = false;
-uint64_t    net_decimal::calculate_accuracy  = 32,
-            net_decimal::net_dec_pi_acc      = 0,
+uint64_t    net_decimal::net_dec_pi_acc      = 0,
             net_decimal::net_dec_con_acc     = 0;
 net_decimal net_decimal::net_dec_pi_cnt      = 0,
             net_decimal::net_dec_pi_frc      = 1,
             net_decimal::net_dec_pi          = 2,
             net_decimal::net_dec_con         = 0;
+
+std::atomic_uint64_t net_decimal::calculate_accuracy  = 32;
+std::atomic_bool     net_decimal::modulo_mode         = false,
+                     net_decimal::high_precision_mode = false;
 
 NEUNET_END
 

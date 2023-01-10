@@ -20,16 +20,13 @@ callback_arg arg *ptr_init(uint64_t &len, std::initializer_list<arg> init_list) 
     return ans;
 }
 
-void ptr_reset() {}
-callback_arg void ptr_reset(arg *&src) {
-    while (src) {
-        delete [] src;
-        src = nullptr;
-    }
-}
 callback_args void ptr_reset(arg *&first, args *&...others) {
-    ptr_reset(first);
-    ptr_reset(others...);
+    while (first) {
+        delete [] first;
+        first = nullptr;
+    }
+    if constexpr (sizeof...(others) > 0) ptr_reset(others...);
+    return;
 }
 
 callback_arg bool ptr_elem_equal(const arg *fst_src, uint64_t fst_len, const arg *snd_src, uint64_t snd_len) {
@@ -63,7 +60,8 @@ callback_arg void ptr_reverse(arg *&src, uint64_t len) { if (len > 1) for (auto 
 
 callback_arg bool ptr_copy(arg *&dest, const arg *src, uint64_t src_len) {
     if(dest && src && src_len) {
-        for (auto i = 0ull; i < src_len; ++i) *(dest + i) = *(src + i);
+        if constexpr (std::is_copy_assignable_v<arg> && std::is_copy_constructible_v<arg>) std::copy(src, src + src_len, dest);
+        else for (auto i = 0ull; i < src_len; ++i) *(dest + i) = *(src + i);
         return true;
     } else return false;
 }
@@ -112,8 +110,7 @@ callback_arg arg ptr_erase(arg *&src, uint64_t elem_cnt, uint64_t tgt_idx, bool 
 
 callback_arg bool ptr_sort(arg *&seq_val, uint64_t begin, uint64_t end, bool asc = true) {
     if (end == begin) return true;
-    else if (seq_val + begin && seq_val + end)
-    {
+    else if (seq_val + begin && seq_val + end) {
         auto pivot = begin,
              slide = end;
         while (slide != pivot)
@@ -278,7 +275,7 @@ callback_arg ul_ptr ptr_find(uint64_t &ans_len, const arg *src, uint64_t src_len
     return ans;
 }
 
-double *ptr_narr_float(long double *src, uint64_t len) {
+double *ptr_narr_float(const long double *src, uint64_t len) {
     if (!(len && src)) return nullptr;
     auto ans = ptr_init<double>(len);
     if constexpr (sizeof(double) == sizeof(long double)) std::copy(src, src + len, ans);

@@ -72,7 +72,9 @@ public:
             mem_len += mem_len;
             init(this->len, mem_len);
         }
-        return ptr_insert(this->ptr, this->len++, std::move(arg(std::forward<args>(paras)...)), idx, false);
+        *(this->ptr + idx) = arg(std::forward<args>(paras)...);
+        ++this->len;
+        return true;
     }
     
     template<typename ... args> bool emplace_back(args &&...paras) { return insert(this->len, std::forward<args>(paras)...); }

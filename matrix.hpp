@@ -499,11 +499,6 @@ public:
         return line_data(this, ln, col_cnt);
     }
 
-    // matrix_elem_t *operator[](uint64_t ln) const {
-    //     assert(ln < ln_cnt);
-    //     return ptr + ln * col_cnt;
-    // }
-
     bool operator==(const net_matrix &src) const {
         if (shape_verify(src)) {
             for (auto i = 0ull; i < elem_cnt; ++i) if (*(ptr + i) != *(src.ptr + i)) return false;
@@ -523,5 +518,7 @@ public:
     }
 
 };
+
+callback_matrix neunet_vect vect_sum(const net_set<neunet_vect> &vect_set) { return net_matrix<matrix_elem_t>::set_sigma(vect_set); }
 
 MATRIX_END

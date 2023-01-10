@@ -1,0 +1,9 @@
+.vs
+Modernization
+*.exe
+*.pdb
+*.obj
+*.ilk
+x64
+x86
+Src

@@ -1,11 +1,6 @@
 // This is a c++ 20 standard file.
 #pragma once
 
-#define MATRIX_UNROLL    4
-#define MATRIX_BLOCKSIZE 32
-
-#define OMP_MATRIX_MODE  false
-
 #include <iostream>
 #include "matrix"
 
@@ -40,5 +35,6 @@ int main(int argc, char *argv[], char *envp[]) {
           cout << temp << '\n';
           cout << endl;
      }
+
      return EXIT_SUCCESS;
 }
