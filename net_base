@@ -4,8 +4,6 @@
 
 #include <chrono>
 #include <random>
-#include <string>
-#include <functional>
 #include <assert.h>
 
 #define NEUNET_BEGIN    namespace neunet {
@@ -20,9 +18,9 @@
 #define ul_ptr          unsigned long long *
 #define lf_ptr          long double *
 
-#define number_arg      = std::enable_if_t<std::is_floating_point_v<arg> || std::is_integral_v<arg>>
+NEUNET_BEGIN bool       net_rand_seed = false; NEUNET_END
 
-std::default_random_engine lib_rand_e;
+#define NEUNET_SRAND    if (!neunet::net_rand_seed) { std::srand(std::time(NULL)); neunet::net_rand_seed = true; }
 
 #include "net_base.hpp"
 

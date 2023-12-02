@@ -59,19 +59,19 @@ callback_matrix matrix_ptr init_identity(uint64_t dim_cnt) {
     return ans;
 }
 
-callback_matrix matrix_ptr init_rand(uint64_t elem_cnt, const matrix_elem_t &fst_rng = 0, const matrix_elem_t &snd_rng = 0, uint64_t acc = 8) {
+callback_matrix matrix_ptr init_rand(uint64_t elem_cnt, const matrix_elem_t &fst_rng = -1, const matrix_elem_t &snd_rng = 1) {
     if (elem_cnt == 0) return nullptr;
     auto ans = init<matrix_elem_t>(elem_cnt);
     for (auto i = 0ull; i < elem_cnt; ++i)
-        if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = num_rand(fst_rng.number_format, snd_rng.number_format, acc);
-        else *(ans + i) = num_rand(fst_rng, snd_rng, acc);
+        if constexpr (std::is_same_v<matrix_elem_t, net_decimal>) *(ans + i) = num_rand(fst_rng.number_format, snd_rng.number_format);
+        else *(ans + i) = num_rand(fst_rng, snd_rng);
     return ans;
 }
 
 callback_matrices void recycle(matrices_ptr &...val) { ptr_reset(val...); }
 
 callback_matrix matrix_ptr copy(const matrix_ptr src, uint64_t elem_cnt) {
-    if (src && elem_cnt) return ptr_copy(src, elem_cnt);
+    if (src && elem_cnt) return ptr_copy<matrix_elem_t>(src, elem_cnt);
     else return nullptr;
 }
 callback_matrix bool copy(matrix_ptr &dest, uint64_t dest_elem_cnt, const matrix_ptr src, uint64_t elem_cnt) {
@@ -210,19 +210,40 @@ void mult_block_reg(double *&ans, const double *fst, uint64_t fst_ln_cnt, uint64
     }
     if (fst_ln_blk > fst_ln_cnt) fst_ln_blk = fst_ln_cnt;
     if (fst_col_blk > fst_col_cnt) fst_col_blk = fst_col_cnt;
-	for (auto i = fst_ln; i < fst_ln_blk; ++i) if (blk_flag) for (auto j = snd_col; j < snd_col_blk; j += MATRIX_UNROLL_UNIT) {
-		__m256d ans_reg[MATRIX_UNROLL];
-		for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_load_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE);
+    
+	// for (auto i = fst_ln; i < fst_ln_blk; ++i) if (blk_flag) for (auto j = snd_col; j < snd_col_blk; j += MATRIX_UNROLL_UNIT) {
+	// 	__m256d ans_reg[MATRIX_UNROLL];
+	// 	for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_load_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE);
 
-		for (auto k = fst_col; k < fst_col_blk; ++k) {
-			__m256d fst_reg = _mm256_broadcast_sd(fst + i * fst_col_cnt + k);
-			for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_add_pd(ans_reg[x], _mm256_mul_pd(fst_reg, _mm256_load_pd(snd + k * snd_col_cnt + j + x * MATRIX_REGSIZE)));
-		}
+	// 	for (auto k = fst_col; k < fst_col_blk; ++k) {
+	// 		__m256d fst_reg = _mm256_broadcast_sd(fst + i * fst_col_cnt + k);
+	// 		for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_add_pd(ans_reg[x], _mm256_mul_pd(fst_reg, _mm256_load_pd(snd + k * snd_col_cnt + j + x * MATRIX_REGSIZE)));
+	// 	}
 
-		for (auto x = 0; x < MATRIX_UNROLL; ++x) _mm256_store_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE, ans_reg[x]);
-	} else for (auto j = fst_col; j < fst_col_blk; ++j) {
-        auto coe = *(fst + i * fst_col_cnt + j);
-        for (auto k = snd_col; k < snd_col_blk; ++k) *(ans + i * snd_col_cnt + k) += coe * (*(snd + j * snd_col_cnt + k));
+	// 	for (auto x = 0; x < MATRIX_UNROLL; ++x) _mm256_store_pd(ans + i * snd_col_cnt + j + x * MATRIX_REGSIZE, ans_reg[x]);
+	// } else for (auto j = fst_col; j < fst_col_blk; ++j) {
+    //     auto coe = *(fst + i * fst_col_cnt + j);
+    //     for (auto k = snd_col; k < snd_col_blk; ++k) *(ans + i * snd_col_cnt + k) += coe * (*(snd + j * snd_col_cnt + k));
+    // }
+
+    for (auto i = fst_ln; i < fst_ln_blk; ++i) {
+        auto ans_ptr = ans + i * snd_col_cnt;
+        if (blk_flag) for (auto j = snd_col; j < snd_col_blk; j += MATRIX_UNROLL_UNIT) {
+		    __m256d ans_reg[MATRIX_UNROLL];
+		    for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_load_pd(ans_ptr + j + x * MATRIX_REGSIZE);
+            
+		    for (auto k = fst_col; k < fst_col_blk; ++k) {
+		    	__m256d fst_reg = _mm256_broadcast_sd(fst + i * fst_col_cnt + k);
+		    	for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_add_pd(ans_reg[x], _mm256_mul_pd(fst_reg, _mm256_load_pd(snd + k * snd_col_cnt + j + x * MATRIX_REGSIZE)));
+	    	}
+            
+	    	for (auto x = 0; x < MATRIX_UNROLL; ++x) _mm256_store_pd(ans_ptr + j + x * MATRIX_REGSIZE, ans_reg[x]);
+	    } else for (auto j = fst_col; j < fst_col_blk; ++j) {
+            auto coe_val = *(fst + i * fst_col_cnt + j);
+            auto snd_ptr = snd + j * snd_col_cnt;
+            for (auto k = snd_col; k < snd_col_blk; ++k) *(ans_ptr + k) += coe_val * (*(snd_ptr + k));
+        }
+        ans_ptr = nullptr;
     }
 }
 double *mult_reg(const double *fst, uint64_t fst_ln_cnt, uint64_t fst_col_cnt, const double *snd, uint64_t snd_col_cnt) {

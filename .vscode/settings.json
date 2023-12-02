@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "matrix": "cpp",
+        "net_base": "cpp",
+        "net_decimal": "cpp",
+        "net_list": "cpp",
+        "net_sequence": "cpp",
+        "net_set": "cpp"
+    }
+}

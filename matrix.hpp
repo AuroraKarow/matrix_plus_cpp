@@ -212,7 +212,7 @@ protected:
             _ptr_col_cnt(ptr_len) {}
         
         matrix_elem_t &operator[](uint64_t col) const {
-            assert(col < _ptr_col_cnt);
+            if (col >= _ptr_col_cnt) return neunet_null_ref(matrix_elem_t);
             return *(_buf_ptr_->ptr + _ptr_ln_ * _ptr_col_cnt + col);
         }
         
@@ -229,12 +229,12 @@ protected:
     };
 
 public:
-    net_matrix(uint64_t mtx_ln_cnt, uint64_t mtx_col_cnt, bool rand_init = false, const matrix_elem_t &fst_rng = 0, const matrix_elem_t &snd_rng = 0, uint64_t acc = 5) :
+    net_matrix(uint64_t mtx_ln_cnt, uint64_t mtx_col_cnt, bool rand_init = false, const matrix_elem_t &fst_rng = -1, const matrix_elem_t &snd_rng = 1) :
         ln_cnt(mtx_ln_cnt),
         col_cnt(mtx_col_cnt),
         elem_cnt(mtx_ln_cnt * mtx_col_cnt) {
             if (elem_cnt == 0) return;
-            if (rand_init) ptr = init_rand<matrix_elem_t>(elem_cnt, fst_rng, snd_rng, acc);
+            if (rand_init) ptr = init_rand<matrix_elem_t>(elem_cnt, fst_rng, snd_rng);
             else ptr = init<matrix_elem_t>(elem_cnt);
         }
     template<typename matrix_elem_para, typename matrix_elem_para_v> net_matrix(const i_arg &src) :
@@ -351,7 +351,7 @@ public:
     }
 
     matrix_elem_t &index(uint64_t idx) const {
-        assert(idx < elem_cnt);
+        if (idx >= elem_cnt)return neunet_null_ref(matrix_elem_t);
         return *(ptr + idx);
     }
 
@@ -388,31 +388,31 @@ public:
     uint64_t __elem_cnt__() const { return elem_cnt; }
     
     matrix_elem_t __determinant__() const {
-        assert(ln_cnt == col_cnt);
+        if (ln_cnt != col_cnt) return neunet_null_ref(matrix_elem_t);
         return det(ptr, ln_cnt);
     }
 
     net_matrix __inverse_() const {
-        assert(ln_cnt == col_cnt);
+        if (ln_cnt != col_cnt) return neunet_null_ref(net_matrix);
         return net_matrix(inverser(ptr, ln_cnt), ln_cnt, col_cnt);
     }
 
     net_matrix __tranpose__() const { return net_matrix(transposition(ptr, ln_cnt, col_cnt), col_cnt, ln_cnt); }
 
     matrix_elem_t __atom__() const {
-        assert(ln_cnt == col_cnt && ln_cnt == 1);
+        if (!(ln_cnt == col_cnt && ln_cnt == 1)) return neunet_null_ref(matrix_elem_t);
         return *ptr;
     }
 
     net_matrix __abs__() const { return net_matrix(absolute(ptr, elem_cnt), ln_cnt, col_cnt); }
 
     net_matrix __LU_decompose__() const {
-        assert(ln_cnt == col_cnt);
+        if (ln_cnt != col_cnt) return neunet_null_ref(net_matrix);
         return net_matrix(LU(ptr, ln_cnt), ln_cnt, col_cnt);
     }
 
     net_matrix __adjugation__() const {
-        assert(ln_cnt == col_cnt);
+        if (ln_cnt != col_cnt) return neunet_null_ref(net_matrix);
         return net_matrix(adjugate(ptr, ln_cnt), ln_cnt, col_cnt);
     }
 
@@ -428,6 +428,43 @@ public:
     }
 
     static net_matrix identity(uint64_t dim_cnt) { return net_matrix(init_identity<matrix_elem_t>(dim_cnt), dim_cnt, dim_cnt); }
+
+    static net_matrix set_sigma(const net_set<net_matrix> &vect_set) {
+        if constexpr (std::is_same_v<matrix_elem_t, double> || (std::is_same_v<matrix_elem_t, long double> && sizeof(long double) == sizeof(double))) {
+            net_matrix ans;
+            ans.ln_cnt   = vect_set[0].ln_cnt;
+            ans.col_cnt  = vect_set[0].col_cnt;
+            ans.elem_cnt = vect_set[0].elem_cnt;
+
+            __m256d ans_reg[MATRIX_UNROLL];
+            auto ans_ptr  = new double [ans.elem_cnt];
+            auto idx_temp = 0ull;
+            while (idx_temp < ans.elem_cnt) {
+                auto idx_next = idx_temp + MATRIX_UNROLL_UNIT;
+
+                if (idx_next > ans.elem_cnt) {
+                    for (auto i = idx_temp; i < ans.elem_cnt; ++i) {
+                        *(ans_ptr + i) = (*(vect_set[0].ptr + i));
+                        for (auto j = 1ull; j < vect_set.length; ++j) *(ans_ptr + i) += (*(vect_set[j].ptr + i));
+                    }
+                    break;
+                }
+
+                for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_load_pd((double *)vect_set[0].ptr + idx_temp + x * MATRIX_REGSIZE);
+
+                for (auto i = 1ull; i < vect_set.length; ++i) for (auto x = 0; x < MATRIX_UNROLL; ++x) ans_reg[x] = _mm256_add_pd(ans_reg[x], _mm256_load_pd((double *)vect_set[i].ptr + idx_temp + x * MATRIX_REGSIZE));
+
+                for (auto x = 0; x < MATRIX_UNROLL; ++x) _mm256_store_pd(ans_ptr + idx_temp + x * MATRIX_REGSIZE, ans_reg[x]);
+
+                idx_temp = idx_next;
+            }
+
+            ans.ptr = (matrix_elem_t *)ans_ptr;
+            ans_ptr = nullptr;
+            
+            return ans;
+        } else return vect_set.sum;
+    }
 
     __declspec(property(get=__ln_cnt__))       uint64_t      line_count;
     __declspec(property(get=__col_cnt__))      uint64_t      column_count;
@@ -495,7 +532,7 @@ public:
     }
 
     line_data operator[](uint64_t ln) const {
-        assert(ln < ln_cnt);
+        if (ln > ln_cnt) return {};
         return line_data(this, ln, col_cnt);
     }
 

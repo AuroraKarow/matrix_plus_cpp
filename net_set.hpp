@@ -45,6 +45,7 @@ public:
 
 protected:
     void value_copy(const net_set &src) {
+        if (&src == this) return;
         ptr_alter(ptr, len, src.len, false);
         ptr_copy(ptr, src.ptr, src.len);
         len = src.len;
@@ -63,6 +64,9 @@ public:
         len(init_list.size()) {}
     net_set(net_ptr_base<arg> &&src) :
         len(src.len) { ptr_move(ptr, std::move(src.ptr_base)); src.len = 0; }
+    net_set(arg *&&src, uint64_t len) :
+        ptr(src),
+        len(len) { src = nullptr; }
     net_set(const net_set &src) { value_copy(src); }
     net_set(net_set &&src) { value_move(std::move(src)); }
     
@@ -77,13 +81,15 @@ public:
     }
     
     void ptr_array(net_ptr_base<arg> &&src) {
-        *this        = net_set(std::move(src));
+        ptr_reset(ptr);
+        ptr          = src.ptr_base;
+        len          = src.len;
         src.ptr_base = nullptr;
         src.len      = 0;
     }
     net_ptr_base<arg> ptr_array() const {
         net_ptr_base<arg> ans;
-        ans.ptr_base = ptr_copy(ptr, len);
+        ans.ptr_base = ptr_copy<arg>(ptr, len);
         ans.len      = len;
         return ans;
     }
@@ -207,15 +213,27 @@ public:
     }
     
     iterator end() const { return iterator(nullptr, 0); }
+
+    bool copy(uint64_t idx, const net_set<arg> &src, uint64_t src_idx, uint64_t copy_len) {
+        if (src_idx + copy_len > src.len || idx + copy_len > len) return false;
+        std::copy(src.ptr + src_idx, src.ptr + src_idx + copy_len, ptr + idx);
+        return true;
+    }
     
     void reset() { len = 0; ptr_reset(ptr); }
     
     arg &operator[](uint64_t idx) const {
-        assert(idx < len);
+        // FIXME: performance lost
+        #if neunet_boundary_check
+        if (idx >= len) return neunet_null_ref(arg);
+        #endif
         return *(ptr + idx);
     }
 
-    bool operator==(const net_set &src) const { return ptr_elem_equal(ptr, len, src.ptr, src.len); }
+    bool operator==(const net_set &src) const {
+        if (this == &src) return true;
+        return ptr_elem_equal(ptr, len, src.ptr, src.len);
+    }
 
     bool operator!=(const net_set &src) const { return !(*this == src); }
     

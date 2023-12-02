@@ -1,24 +1,65 @@
+/* net_deciaml
+ * The data structure is designed by Yida Xian
+ * Algorithm is instantiated by Diansheng Liao
+ */
+
 #pragma once
 
 #ifndef __NET_DECIMAL__
 #define __NET_DECIMAL__
 
 #include <complex>
-#include "net_sequence"
+#include "net_set"
 
-#define NEUNET_PI           3.1415926535897932
+#define NEUNET_FFT_PI               3.1415926535897932
 
-#define NEUNET_EULER_MOD    0x000000003b800001
-#define NEUNET_EULER_MOD_G  0x0000000000000003
+#define NEUNET_NTT_EULER_MOD        0x3b800001
+#define NEUNET_NTT_EULER_MOD_G      0x00000003
 
-#define NEUNET_DEC_DIG_MAX  0x0000000000000013
-#define NEUNET_DEC_SEG_MAX  0x8ac7230489e80000
+#define NEUNET_DEC_SEG_MAX          0x8ac7230489e80000
 
-#define callback_dec_arg    template <typename arg, typename number_arg>
+#define NEUNET_DEC_DIV_REM          0x3b9aca00ull
 
+#define NEUNET_DEC_MUL_POW          0x000f4240ull
+#define NEUNET_DEC_MUL_SQR          (NEUNET_DEC_MUL_POW * NEUNET_DEC_MUL_POW)
+#define NEUNET_DEC_MUL_CUB          (NEUNET_DEC_MUL_SQR * NEUNET_DEC_MUL_POW)
+#define NEUNET_DEC_MUL_END          (NEUNET_DEC_MUL_POW * 0x000a)
+
+#define NEUNET_DEC_BIT_BAS          0x4563918244f40000
+#define NEUNET_DEC_BIT_TOP          0x8000000000000000
+
+#define NEUNET_DEC_DIG_MAX          0x0013
+#define NEUNET_DEC_VLD_DIG          0x0010
+
+#define NEUNET_DEC_CMP_EQL          0x0000
+#define NEUNET_DEC_CMP_LES          0x0001
+#define NEUNET_DEC_CMP_GTR          0x0002
+
+#define NEUNET_DEC_BIN_OR           0x0000
+#define NEUNET_DEC_BIN_AND          0x0001
+#define NEUNET_DEC_BIN_XOR          0x0002
+
+#define neunet_t_arr_len(type, arg) type[sizeof(arg) / sizeof(type)]
+
+#define neunet_dec_init_expr        std::is_arithmetic_v<arg> ||\
+                                    std::is_same_v<arg, neunet_t_arr_len(char, arg)> ||\
+                                    std::is_same_v<std::string, arg>,\
+                                    "A arithmetic or string type value is needed."
+
+#define neunet_dec_type(type)       std::remove_reference_t<type>
+#define neunet_dec_num(type)        std::is_arithmetic_v<\
+                                    neunet_dec_type(type)>
+
+#define neunet_number_arg           neunet_dec_num(arg)
+#define neunet_dec_enable(expr)     = std::enable_if_t<expr>
+#define callback_dec_arg            template<typename arg,\
+                                             typename neunet_dec_enable\
+                                                      (neunet_number_arg)>
+
+#define neunet_dec_loop             while (true)
+
+#include "net_decimal_data.hpp"
+#include "net_decimal_base.hpp"
 #include "net_decimal.hpp"
-
-neunet::net_decimal operator "" _dec(long double src) { return neunet::net_decimal(src); }
-neunet::net_decimal operator "" _dec(uint64_t src) { return neunet::net_decimal(src); }
 
 #endif

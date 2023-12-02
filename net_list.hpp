@@ -5,13 +5,26 @@ template <typename arg> struct net_node {
     arg      elem  {};
     net_node *prev = nullptr,
              *next = nullptr;
-    ~net_node() {
-        prev = nullptr;
-        while(next)
-        {
-            delete next;
-            next = nullptr;
+    
+    void __link_mem_reset() {
+        while (next) {
+            auto p_tmp = next->next;
+            next->prev = nullptr;
+            next->next = nullptr;
+            while(next) {
+                delete next;
+                next = nullptr;
+            }
+            next = p_tmp;
         }
+    }
+
+    ~net_node() {
+        if (prev) {
+            prev->next = nullptr;
+            prev       = nullptr;
+        }
+        if (next) __link_mem_reset();
     }
 };
 
@@ -19,7 +32,8 @@ template <typename arg> class net_list {
 public:
     struct iterator final : net_iterator_base<arg, net_node<arg>> {
     public:
-        iterator(const net_node<arg> *node = nullptr) : net_iterator_base<arg, net_node<arg>>(node) {}
+        iterator(const net_node<arg> *node = nullptr, const net_node<arg> *tail = nullptr) : net_iterator_base<arg, net_node<arg>>(node),
+            tail(tail) {}
 
         virtual bool operator==(const iterator &val) const { return net_iterator_base<arg, net_node<arg>>::operator==(val); }
 
@@ -39,10 +53,14 @@ public:
     
         virtual iterator &operator--() {
             if (this->ptr) this->ptr = this->ptr->prev;
+            else this->ptr = tail;
             return *this;
         }
     
         virtual iterator operator--(int) { auto temp = *this; --*this; return temp; }
+
+        ~iterator() { tail = nullptr; }
+    private: const net_node<arg> *tail = nullptr;
     };
 
 protected:
@@ -315,11 +333,11 @@ public:
     }
 
     iterator begin() const {
-        if (len) return iterator(head);
+        if (len) return iterator(head, tail);
         else return end();
     }
 
-    iterator end() const { return iterator(nullptr); }
+    iterator end() const { return iterator(nullptr, tail); }
 
     arg sigma() {
         arg ans {};
@@ -342,9 +360,15 @@ public:
     arg pi(const net_set<uint64_t> &idx_set) { return sub_list(idx_set).pi(); }
 
     net_set<arg> set_output() {
-        net_set<arg> ans(len);
-        auto cnt = 0ull;
-        for(auto temp : *this) ans[cnt++] = temp;
+        net_set<arg> ans;
+        if (!len) return ans;
+        ans.init(len);
+        auto ptr = head;
+        for (auto i = 0ull; i < len; ++i) {
+            ans[i] = ptr->elem;
+            ptr    = ptr->next;
+        }
+        ptr = nullptr;
         return ans;
     }
 
@@ -412,13 +436,19 @@ public:
     }
 
     arg &operator[](uint64_t idx) const {
-        assert(idx < len);
-        if (idx) if ((idx + 1) == len) return tail->elem;
-        else {
-            auto tool = head;
-            for (auto i = 0ull; i < idx; ++i) tool = tool->next;
-            return tool->elem;
-        } else return head->elem;
+        if (idx >= len) return neunet_null_ref(arg);
+        if ((idx + 1) == len) return tail->elem;
+        if (!idx) return head->elem;
+        auto back_idx = len - 2;
+        net_node<arg> *tool = nullptr;
+        if ((back_idx - idx) < idx) {
+            tool = tail->prev;
+            for (auto i = back_idx; i > idx; --i) tool = tool->prev;
+        } else {
+            tool = head->next;
+            for (auto i = 1ull; i < idx; ++i) tool = tool->next;
+        }
+        return tool->elem;
     }
 
     bool operator==(const net_list &val) const {

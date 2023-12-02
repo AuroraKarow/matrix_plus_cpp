@@ -72,6 +72,10 @@ public:
             mem_len += mem_len;
             init(this->len, mem_len);
         }
+        if constexpr (std::is_copy_assignable_v<arg>) {
+            auto dest_ptr = this->ptr + idx + 1;
+            ptr_copy(dest_ptr, this->ptr + idx, this->len - idx);
+        } else for (auto i = this->len; i > idx; --i) *(this->ptr + i) = std::move(*(this->ptr + i - 1));
         *(this->ptr + idx) = arg(std::forward<args>(paras)...);
         ++this->len;
         return true;
